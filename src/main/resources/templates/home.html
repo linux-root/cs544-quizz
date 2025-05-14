@@ -23,7 +23,7 @@
                                     <img th:src="${avatarUrl}" alt="User Avatar" />
                                 </div>
                             </div>
-                            <span th:text="${username}">User</span>
+                            <span th:text="${displayName}">User</span>
                         </summary>
                         <ul class="p-2 bg-base-100 rounded-t-none shadow">
                             <li>
@@ -40,12 +40,22 @@
 
     <div class="container mx-auto">
         <div sec:authorize="isAuthenticated()" class="text-center">
-            <h1 class="text-4xl font-bold mb-4">Welcome, <span th:text="${username}">User</span>!</h1>
-            <p class="text-lg">You have successfully logged in using GitHub.</p>
+            <h1 class="text-4xl font-bold mb-4">Welcome, <span th:text="${displayName}">User</span>!</h1>
+            <p class="text-lg mb-2">You are logged in. 
+                <span th:if="${isProfessor}" class="badge badge-secondary">Professor</span>
+                <span th:unless="${isProfessor}" class="badge badge-info">Student (GitHub)</span>
+            </p>
+            <p class="text-sm text-base-content/70">Username (principal name): <span th:text="${username}"></span></p>
+            <p class="text-sm text-base-content/70 mb-4">Roles: <span th:text="${roles}"></span></p>
             
             <div class="mt-8 p-6 bg-base-100 rounded-box shadow-md">
                 <h2 class="text-2xl mb-2">A DaisyUI Component Example</h2>
                 <button class="btn btn-accent">Accent Button</button>
+            </div>
+
+            <div th:if="${isProfessor}" class="mt-8 p-6 bg-info-content text-info rounded-box shadow-md">
+                <h2 class="text-2xl mb-2">Professor Dashboard Area</h2>
+                <p>This content is only visible to professors.</p>
             </div>
         </div>
 

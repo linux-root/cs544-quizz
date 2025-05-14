@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home</title>
+    <link rel="stylesheet" th:href="@{/css/output.css}"/>
+</head>
+<body class="bg-base-200 p-8">
+
+    <div class="navbar bg-base-100 rounded-box shadow-lg mb-8">
+        <div class="flex-1">
+            <a class="btn btn-ghost normal-case text-xl">CoolProject</a>
+        </div>
+        <div class="flex-none">
+            <ul class="menu menu-horizontal px-1">
+                <li sec:authorize="!isAuthenticated()"><a th:href="@{/login}" class="btn btn-primary">Login</a></li>
+                <li sec:authorize="isAuthenticated()">
+                    <details>
+                        <summary class="btn btn-ghost">
+                            <div th:if="${avatarUrl}" class="avatar mr-2">
+                                <div class="w-8 rounded-full">
+                                    <img th:src="${avatarUrl}" alt="User Avatar" />
+                                </div>
+                            </div>
+                            <span th:text="${username}">User</span>
+                        </summary>
+                        <ul class="p-2 bg-base-100 rounded-t-none shadow">
+                            <li>
+                                <form th:action="@{/logout}" method="post" class="inline">
+                                    <button type="submit" class="btn btn-ghost btn-sm w-full text-left">Logout</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </details>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="container mx-auto">
+        <div sec:authorize="isAuthenticated()" class="text-center">
+            <h1 class="text-4xl font-bold mb-4">Welcome, <span th:text="${username}">User</span>!</h1>
+            <p class="text-lg">You have successfully logged in using GitHub.</p>
+            
+            <div class="mt-8 p-6 bg-base-100 rounded-box shadow-md">
+                <h2 class="text-2xl mb-2">A DaisyUI Component Example</h2>
+                <button class="btn btn-accent">Accent Button</button>
+            </div>
+        </div>
+
+        <div sec:authorize="!isAuthenticated()" class="text-center">
+            <h1 class="text-4xl font-bold mb-4">Welcome to CoolProject!</h1>
+            <p class="text-lg">Please <a th:href="@{/login}" class="link link-primary">login</a> to access more features.</p>
+        </div>
+    </div>
+
+</body>
+</html> 

@@ -7,16 +7,4 @@ module.exports = {
   theme: {
     extend: {},
   },
-  plugins: [
-    // require('daisyui'), // Removed for Tailwind CSS v4 compatibility with DaisyUI v5
-  ],
-  // daisyui: { // Removed for Tailwind CSS v4 compatibility with DaisyUI v5
-  //   themes: true, 
-  //   darkTheme: "dark", 
-  //   base: true, 
-  //   styled: true, 
-  //   utils: true, 
-  //   prefix: "", 
-  //   logs: true, 
-  // }
 } 

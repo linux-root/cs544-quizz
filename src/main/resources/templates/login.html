@@ -45,9 +45,11 @@
                     </div>
                     <div>
                         <label for="code" class="label">
-                            <span class="label-text">Code</span>
+                            <span class="label-text">Verification Code</span>
                         </label>
-                        <input type="password" name="code" id="code" placeholder="Enter code" class="input input-bordered w-full" required />
+                        <input type="text" name="code" id="code" placeholder="######" 
+                               class="input input-bordered w-full max-w-xs mx-auto text-center tracking-[.5em] text-lg" 
+                               inputmode="numeric" pattern="[0-9]*" maxlength="6" required />
                     </div>
                     <div class="card-actions justify-center mt-2">
                         <button type="submit" class="btn btn-secondary w-full">Login with Email & Code</button>

@@ -18,12 +18,14 @@
                 <li sec:authorize="isAuthenticated()">
                     <details>
                         <summary class="btn btn-ghost">
-                            <div th:if="${avatarUrl}" class="avatar mr-2">
-                                <div class="w-8 rounded-full">
-                                    <img th:src="${avatarUrl}" alt="User Avatar" />
+                            <div class="flex items-center">
+                                <div th:if="${avatarUrl}" class="avatar mr-2">
+                                    <div class="w-8 rounded-full">
+                                        <img th:src="${avatarUrl}" alt="User Avatar" />
+                                    </div>
                                 </div>
+                                <span th:text="${displayName}">User</span>
                             </div>
-                            <span th:text="${displayName}">User</span>
                         </summary>
                         <ul class="p-2 bg-base-100 rounded-t-none shadow">
                             <li>

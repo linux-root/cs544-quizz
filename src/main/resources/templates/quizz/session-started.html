@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <title>Session Started</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="/css/output.css" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-base-200">
+    <div class="navbar bg-primary text-primary-content">
+        <div class="flex-1">
+            <a th:href="@{/}" class="btn btn-ghost normal-case text-xl">Cool Project</a>
+        </div>
+        <div class="flex-none">
+            <ul class="menu menu-horizontal px-1">
+                <li sec:authorize="hasAuthority('PROFESSOR')">
+                    <a th:href="@{/quizz/my-quizzes}">My Quizzes</a>
+                </li>
+                <li>
+                    <a th:href="@{/logout}">Logout</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="hero min-h-screen bg-base-200">
+        <div class="hero-content text-center">
+            <div class="max-w-md">
+                <div class="alert alert-success mb-8">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Quizz session started successfully!</span>
+                </div>
+                
+                <h1 class="text-5xl font-bold">Session Active</h1>
+                <p class="py-6">
+                    Your quizz session has been opened. Students can now join the session.
+                </p>
+                
+                <div class="stats shadow my-8">
+                    <div class="stat">
+                        <div class="stat-title">Quizz</div>
+                        <div class="stat-value text-primary" th:text="${session.quizz.description}"></div>
+                    </div>
+                    
+                    <div class="stat">
+                        <div class="stat-title">Session ID</div>
+                        <div class="stat-value text-accent" th:text="${session.id}"></div>
+                        <div class="stat-desc">Students need this to join</div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col md:flex-row gap-4 justify-center">
+                    <a th:href="@{/quizz/my-quizzes}" class="btn btn-primary">Go to My Quizzes</a>
+                    <a th:href="@{/}" class="btn">Back to Home</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

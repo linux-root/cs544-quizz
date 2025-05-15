@@ -14,6 +14,7 @@
         </div>
         <div class="flex-none">
             <ul class="menu menu-horizontal px-1">
+                <li sec:authorize="hasAuthority('ROLE_PROFESSOR')"><a th:href="@{/quizz/my-quizzes}" class="btn btn-ghost">My Quizzes</a></li>
                 <li sec:authorize="!isAuthenticated()"><a th:href="@{/login}" class="btn btn-primary">Login</a></li>
                 <li sec:authorize="isAuthenticated()">
                     <details>
@@ -57,7 +58,11 @@
 
             <div th:if="${isProfessor}" class="mt-8 p-6 bg-info-content text-info rounded-box shadow-md">
                 <h2 class="text-2xl mb-2">Professor Dashboard Area</h2>
-                <p>This content is only visible to professors.</p>
+                <p class="mb-4">This content is only visible to professors.</p>
+                <div class="flex gap-4 justify-center">
+                    <a th:href="@{/quizz/create}" class="btn btn-primary">Create New Quizz</a>
+                    <a th:href="@{/quizz/my-quizzes}" class="btn btn-secondary">View My Quizzes</a>
+                </div>
             </div>
         </div>
 

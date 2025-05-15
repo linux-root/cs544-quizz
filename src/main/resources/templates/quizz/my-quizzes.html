@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <title>My Quizzes</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="/css/output.css" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-base-200">
+    <div class="navbar bg-primary text-primary-content">
+        <div class="flex-1">
+            <a th:href="@{/}" class="btn btn-ghost normal-case text-xl">Cool Project</a>
+        </div>
+        <div class="flex-none">
+            <ul class="menu menu-horizontal px-1">
+                <li sec:authorize="hasAuthority('PROFESSOR')">
+                    <a th:href="@{/quizz/my-quizzes}" class="active">My Quizzes</a>
+                </li>
+                <li>
+                    <a th:href="@{/logout}">Logout</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold">My Quizzes</h1>
+            <a th:href="@{/quizz/create}" class="btn btn-primary">Create New Quizz</a>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="table w-full">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Description</th>
+                        <th>Created</th>
+                        <th>Sessions</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:if="${quizzes.empty}">
+                        <td colspan="5" class="text-center py-8">
+                            <div class="alert">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <span>You haven't created any quizzes yet. Click "Create New Quizz" to get started.</span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr th:each="quizz : ${quizzes}">
+                        <td th:text="${quizz.id}"></td>
+                        <td th:text="${quizz.description}"></td>
+                        <td th:text="${#temporals.format(quizz.createdAt, 'dd MMM yyyy HH:mm')}"></td>
+                        <td th:text="${quizz.sessions.size()}"></td>
+                        <td>
+                            <div class="flex gap-2">
+                                <a th:href="@{/quizz/update-questions/{id}(id=${quizz.id})}" class="btn btn-sm">Edit</a>
+                                <form th:action="@{/quizz/start-session/{id}(id=${quizz.id})}" method="post">
+                                    <button type="submit" class="btn btn-sm btn-primary">Start Session</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html> 

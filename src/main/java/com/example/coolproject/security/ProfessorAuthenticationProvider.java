@@ -1,5 +1,8 @@
 package com.example.coolproject.security;
 
+import com.example.coolproject.entity.Professor;
+import com.example.coolproject.repository.ProfessorRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -12,17 +15,23 @@ import org.springframework.stereotype.Component;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.stream.Collectors;
 
 @Component
 public class ProfessorAuthenticationProvider implements AuthenticationProvider {
 
     private final List<String> professorEmails;
+    private final ProfessorRepository professorRepository;
 
-    public ProfessorAuthenticationProvider(@Value("${app.security.professor-emails}") String emails) {
+    @Autowired
+    public ProfessorAuthenticationProvider(@Value("${app.security.professor-emails}") String emails, ProfessorRepository professorRepository) {
         this.professorEmails = Arrays.stream(emails.split(","))
                                      .map(String::trim)
                                      .collect(Collectors.toList());
+        this.professorRepository = professorRepository;
     }
 
     @Override
@@ -31,19 +40,31 @@ public class ProfessorAuthenticationProvider implements AuthenticationProvider {
         String code = authentication.getCredentials().toString();
 
         if (professorEmails.contains(email)) {
-            // Special "cheat code" for ping@w47s0n.com
             if ("ping@w47s0n.com".equalsIgnoreCase(email) && "1440".equals(code)) {
+                // Successfully authenticated
+                Optional<Professor> existingProfessor = professorRepository.findByEmail(email);
+                Professor professor;
+                if (existingProfessor.isPresent()) {
+                    professor = existingProfessor.get();
+                    // Update details if necessary, e.g., name, if we had a way to get it
+                    // professor.setName(name); // Example if name could change or be sourced elsewhere
+                } else {
+                    Set<String> roles = new HashSet<>();
+                    roles.add("ROLE_PROFESSOR");
+                    // Name for professor: using the email part before '@' or just email if no other source
+                    String name = email.split("@")[0]; 
+                    professor = new Professor(email, name, roles);
+                }
+                professorRepository.save(professor);
+                
+                // The principal in UsernamePasswordAuthenticationToken should ideally be a UserDetails object
+                // or at least an object that your application can consistently use to get user info.
+                // Here, using email as principal. For more complex scenarios, use the 'professor' object or a UserDetails adapter.
                 return new UsernamePasswordAuthenticationToken(email, code, Collections.singletonList(new SimpleGrantedAuthority("ROLE_PROFESSOR")));
             }
-            // TODO: Implement actual code sending/verification for other professors
-            // For now, other configured professor emails won't be able to log in without this logic
             throw new BadCredentialsException("Invalid code for professor email. Code verification not yet implemented for this account.");
         } else {
-            // To avoid disclosing which emails are valid professor emails, 
-            // throw BadCredentialsException or UsernameNotFoundException (though the latter might be too revealing).
-            // For simplicity here, if email not in list, it's treated as bad credentials for this provider.
-            // Spring Security will try other providers if available.
-            return null; // Indicates this provider cannot authenticate this request
+            return null; 
         }
     }
 

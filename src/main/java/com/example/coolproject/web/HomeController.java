@@ -1,17 +1,27 @@
 package com.example.coolproject.web;
 
+import com.example.coolproject.entity.Student;
+import com.example.coolproject.entity.User;
+import com.example.coolproject.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Controller
 public class HomeController {
+
+    private final UserRepository userRepository;
+
+    @Autowired
+    public HomeController(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     @GetMapping("/")
     public String root() {
@@ -19,24 +29,39 @@ public class HomeController {
     }
 
     @GetMapping("/home")
-    public String home(Model model, Authentication authentication, @AuthenticationPrincipal OAuth2User oauth2User) {
+    public String home(Model model, Authentication authentication) { // OAuth2User principal can be inferred if needed
         if (authentication != null && authentication.isAuthenticated()) {
-            model.addAttribute("username", authentication.getName());
-            
-            String roles = authentication.getAuthorities().stream()
-                                 .map(GrantedAuthority::getAuthority)
-                                 .collect(Collectors.joining(", "));
-            model.addAttribute("roles", roles);
-            model.addAttribute("isProfessor", authentication.getAuthorities().stream()
-                .anyMatch(ga -> ga.getAuthority().equals("ROLE_PROFESSOR")));
+            String email = authentication.getName(); // For both OAuth2 and form login, email is the name
+            Optional<User> userOptional = userRepository.findByEmail(email);
 
-            // Specific handling for OAuth2 user details like avatar
-            if (oauth2User != null) {
-                model.addAttribute("displayName", oauth2User.getAttribute("name")); // Or login, or preferred username
-                model.addAttribute("avatarUrl", oauth2User.getAttribute("avatar_url"));
+            if (userOptional.isPresent()) {
+                User user = userOptional.get();
+                model.addAttribute("username", user.getEmail()); // or user.getName() if preferred for display
+                model.addAttribute("displayName", user.getName());
+                
+                String roles = user.getRoles().stream().collect(Collectors.joining(", "));
+                model.addAttribute("roles", roles);
+                model.addAttribute("isProfessor", user.getRoles().contains("ROLE_PROFESSOR"));
+
+                if (user instanceof Student) {
+                    Student student = (Student) user;
+                    model.addAttribute("avatarUrl", student.getAvatarUrl());
+                } else {
+                     model.addAttribute("avatarUrl", null); // Or a default professor avatar
+                }
+
             } else {
-                // For form login (professor), name is already set as authentication.getName()
-                 model.addAttribute("displayName", authentication.getName());
+                // User authenticated but not found in DB, which shouldn't happen with current setup
+                // Fallback to basic auth info
+                model.addAttribute("username", email);
+                model.addAttribute("displayName", email);
+                String authRoles = authentication.getAuthorities().stream()
+                                     .map(GrantedAuthority::getAuthority)
+                                     .collect(Collectors.joining(", "));
+                model.addAttribute("roles", authRoles);
+                model.addAttribute("isProfessor", authentication.getAuthorities().stream()
+                    .anyMatch(ga -> ga.getAuthority().equals("ROLE_PROFESSOR")));
+                 model.addAttribute("avatarUrl", null);
             }
         }
         return "home";

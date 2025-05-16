@@ -71,4 +71,9 @@ public class HomeController {
     public String login() {
         return "login";
     }
+
+    @GetMapping("/error/403")
+    public String accessDenied() {
+        return "error/403";
+    }
 } 

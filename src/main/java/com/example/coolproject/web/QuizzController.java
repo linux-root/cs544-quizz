@@ -14,6 +14,7 @@ import com.example.coolproject.web.dto.QuizzSessionViewDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -49,36 +50,23 @@ public class QuizzController {
   }
 
   @GetMapping("/create")
+  @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
   public String showCreateQuizzForm() {
     return "quizz/create";
   }
 
   @PostMapping("/generate")
+  @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
   public String generateQuizz(@RequestParam String description,
       Model model,
-      HttpSession session) {
+      HttpSession session, Authentication authentication) {
     logger.info("Generate quizz request received with description: {}", description);
-
-    // Get current authenticated user
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null || !authentication.isAuthenticated()) {
-      logger.error("No authentication found");
-      return "redirect:/login?expired=true";
-    }
-
     String email = authentication.getName();
-    // Check if user is a professor
-    if (!authentication.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_PROFESSOR"))) {
-      logger.warn("User {} is not a Professor. Redirecting to home.", email);
-      return "redirect:/";
-    }
 
     try {
-      // Generate questions using AI but don't create a quizz yet
       List<Question> questions = aiService.generateQuestions(description);
-      logger.info("Generated {} questions", questions.size());
+      logger.info("Generated {} questions for professor {}", questions.size(), email);
 
-      // Store questions and description in session for later use
       session.setAttribute("tempQuestions", questions);
       session.setAttribute("quizzDescription", description);
 
@@ -87,38 +75,24 @@ public class QuizzController {
 
       return "quizz/questions";
     } catch (Exception e) {
-      logger.error("Error generating quizz: ", e);
+      logger.error("Error generating quizz for professor {}: ", email, e);
       model.addAttribute("error", "Failed to generate quiz: " + e.getMessage());
       return "redirect:/quizz/create?error=true";
     }
   }
 
   @PostMapping("/regenerate")
+  @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
   public String regenerateQuestions(@RequestParam String description,
       Model model,
-      HttpSession session) {
+      HttpSession session, Authentication authentication) {
     logger.info("Regenerate questions request received with description: {}", description);
-
-    // Get current authenticated user
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null || !authentication.isAuthenticated()) {
-      logger.error("No authentication found");
-      return "redirect:/login?expired=true";
-    }
-
     String email = authentication.getName();
-    // Check if user is a professor
-    if (!authentication.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_PROFESSOR"))) {
-      logger.warn("User {} is not a Professor. Redirecting to home.", email);
-      return "redirect:/";
-    }
 
     try {
-      // Generate new questions
       List<Question> questions = aiService.generateQuestions(description);
-      logger.info("Regenerated {} questions", questions.size());
+      logger.info("Regenerated {} questions for professor {}", questions.size(), email);
 
-      // Update session with new questions and description
       session.setAttribute("tempQuestions", questions);
       session.setAttribute("quizzDescription", description);
 
@@ -127,45 +101,33 @@ public class QuizzController {
 
       return "quizz/questions";
     } catch (Exception e) {
-      logger.error("Error regenerating questions: ", e);
+      logger.error("Error regenerating questions for professor {}: ", email, e);
       return "redirect:/quizz/create?error=regenerate";
     }
   }
 
   @PostMapping("/create-quizz")
+  @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
   public String createQuizzWithQuestions(@ModelAttribute QuestionFormData questionFormData,
-      HttpSession session,
-      Model model) {
+      HttpSession httpSession,
+      Model model, Authentication authentication) {
     logger.info("Create quizz with questions request received");
-
-    // Get current authenticated user
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null || !authentication.isAuthenticated()) {
-      logger.error("No authentication found");
-      return "redirect:/login?expired=true";
-    }
-
     String email = authentication.getName();
-    logger.info("Looking up professor with email: {}", email);
-
-    // Find professor by email
     Optional<Professor> professorOpt = professorRepository.findByEmail(email);
-    if (!professorOpt.isPresent()) {
-      logger.warn("No professor found with email: {}", email);
-      return "redirect:/";
-    }
 
-    // Get description from session
-    String description = (String) session.getAttribute("quizzDescription");
+    if (!professorOpt.isPresent()) {
+        logger.error("Authenticated user {} is not found as a professor in the database.", email);
+        return "redirect:/error/403";
+    }
+    Professor professor = professorOpt.get();
+
+    String description = (String) httpSession.getAttribute("quizzDescription");
     if (description == null) {
-      logger.error("No quizz description found in session");
+      logger.error("No quizz description found in session for professor {}", email);
       return "redirect:/quizz/create?error=session";
     }
 
-    Professor professor = professorOpt.get();
-
     try {
-      // Convert DTO to entity
       List<Question> questions = new ArrayList<>();
       for (QuestionFormData.QuestionDto dto : questionFormData.getQuestions()) {
         Question question = new Question();
@@ -175,117 +137,74 @@ public class QuizzController {
         questions.add(question);
       }
 
-      // Now create the quizz and save questions
       Quizz quizz = quizzService.createQuizzWithQuestions(description, professor, questions);
-      logger.info("Quizz created with ID: {} and {} questions", quizz.getId(), quizz.getQuestions().size());
+      logger.info("Quizz created with ID: {} by professor {}", quizz.getId(), email);
 
-      // Clear temporary session data
-      session.removeAttribute("tempQuestions");
-      session.removeAttribute("quizzDescription");
+      httpSession.removeAttribute("tempQuestions");
+      httpSession.removeAttribute("quizzDescription");
 
       model.addAttribute("quizz", quizz);
       return "quizz/session-options";
     } catch (Exception e) {
-      logger.error("Error creating quizz: ", e);
+      logger.error("Error creating quizz for professor {}: ", email, e);
       return "redirect:/quizz/create?error=create";
     }
   }
 
   @PostMapping("/start-session/{quizzId}")
+  @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
   public String startQuizzSessionNow(@PathVariable Long quizzId,
-      Model model) {
-    logger.info("Start session request received for quizz ID: {}", quizzId);
-
-    // Get current authenticated user
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null || !authentication.isAuthenticated()) {
-      logger.error("No authentication found");
-      return "redirect:/login?expired=true";
-    }
-
+      Model model, Authentication authentication) {
+    logger.info("Start session request received for quizz ID: {} by professor {}", quizzId, authentication.getName());
     String email = authentication.getName();
-    // Check if user is a professor
-    if (!authentication.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_PROFESSOR"))) {
-      logger.warn("User {} is not a Professor. Redirecting to home.", email);
-      return "redirect:/";
-    }
 
-    // Check if quizz already has a session
     Quizz quizz = quizzService.getQuizzById(quizzId);
     if (quizz.getSession() != null) {
-      logger.warn("Quizz {} already has an active session", quizzId);
+      logger.warn("Quizz {} already has an active session. Requested by professor {}", quizzId, email);
       model.addAttribute("error", "This quizz already has an active session");
-      model.addAttribute("quizzes", quizzService.getQuizzesByProfessor(quizz.getCreator()));
       return "quizz/my-quizzes";
     }
 
     QuizzSessionViewDTO sessionDto = quizzService.startQuizzSession(quizzId);
     model.addAttribute("quizzSessionInfo", sessionDto);
-
     return "quizz/session-started";
   }
 
   @PostMapping("/schedule-session/{quizzId}")
+  @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
   public String scheduleQuizzSession(@PathVariable Long quizzId,
       @RequestParam int minutesFromNow,
-      Model model) {
-    logger.info("Schedule session request received for quizz ID: {} to start in {} minutes", quizzId, minutesFromNow);
-
-    // Get current authenticated user
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null || !authentication.isAuthenticated()) {
-      logger.error("No authentication found");
-      return "redirect:/login?expired=true";
-    }
-
+      Model model, Authentication authentication) {
+    logger.info("Schedule session request for quizz ID: {} by professor {}", quizzId, authentication.getName());
     String email = authentication.getName();
-    // Check if user is a professor
-    if (!authentication.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_PROFESSOR"))) {
-      logger.warn("User {} is not a Professor. Redirecting to home.", email);
-      return "redirect:/";
-    }
 
-    // Check if quizz already has a session
     Quizz quizz = quizzService.getQuizzById(quizzId);
     if (quizz.getSession() != null) {
-      logger.warn("Quizz {} already has an active session", quizzId);
+      logger.warn("Quizz {} already has an active session. Requested by professor {}", quizzId, email);
       model.addAttribute("error", "This quizz already has an active session");
-      model.addAttribute("quizzes", quizzService.getQuizzesByProfessor(quizz.getCreator()));
       return "quizz/my-quizzes";
     }
 
     QuizzSessionViewDTO sessionDto = quizzService.scheduleQuizzSession(quizzId, minutesFromNow);
-    logger.info("Session DTO scheduled with ID: {} for quizz ID: {}", sessionDto.getId(), quizzId);
-    logger.info("Quizz Description from DTO for scheduled session: {}", sessionDto.getQuizzDescription());
-
-    model.addAttribute("session", sessionDto);
+    logger.info("Session DTO scheduled for quizz ID {} by professor {}", quizzId, email);
+    model.addAttribute("quizzSessionInfo", sessionDto);
     return "quizz/session-scheduled";
   }
 
   @GetMapping("/my-quizzes")
-  public String showMyQuizzes(Model model) {
-    logger.info("My quizzes request received");
-
-    // Get current authenticated user
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    if (authentication == null || !authentication.isAuthenticated()) {
-      logger.error("No authentication found");
-      return "redirect:/login?expired=true";
-    }
-
+  @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
+  public String showMyQuizzes(Model model, Authentication authentication) {
     String email = authentication.getName();
-    logger.info("Looking up professor with email: {}", email);
+    logger.info("My quizzes request for professor {}", email);
 
-    // Find professor by email
     Optional<Professor> professorOpt = professorRepository.findByEmail(email);
     if (!professorOpt.isPresent()) {
-      logger.warn("No professor found with email: {}", email);
-      return "redirect:/";
+      logger.error("Authenticated user {} is not found as a professor in the database for /my-quizzes.", email);
+       return "redirect:/error/403";
     }
-
     Professor professor = professorOpt.get();
     List<Quizz> quizzes = quizzService.getQuizzesByProfessor(professor);
-    logger.info("Found {} quizzes for professor {}", quizzes.size(), professor.getEmail());
+    logger.info("Found {} quizzes for professor {}", quizzes.size(), email);
 
     model.addAttribute("quizzes", quizzes);
     return "quizz/my-quizzes";

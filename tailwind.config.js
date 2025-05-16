@@ -7,4 +7,6 @@ module.exports = {
   theme: {
     extend: {},
   },
+  // DaisyUI plugin and config removed for Tailwind CSS v4
+  // It will be configured in input.css
 } 

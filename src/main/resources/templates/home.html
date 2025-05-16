@@ -8,38 +8,7 @@
 </head>
 <body class="bg-base-200 p-8">
 
-    <div class="navbar bg-base-100 rounded-box shadow-lg mb-8">
-        <div class="flex-1">
-            <a class="btn btn-ghost normal-case text-xl">CoolProject</a>
-        </div>
-        <div class="flex-none">
-            <ul class="menu menu-horizontal px-1">
-                <li sec:authorize="hasAuthority('ROLE_PROFESSOR')"><a th:href="@{/quizz/my-quizzes}" class="btn btn-ghost">My Quizzes</a></li>
-                <li sec:authorize="!isAuthenticated()"><a th:href="@{/login}" class="btn btn-primary">Login</a></li>
-                <li sec:authorize="isAuthenticated()">
-                    <details>
-                        <summary class="btn btn-ghost">
-                            <div class="flex items-center">
-                                <div th:if="${avatarUrl}" class="avatar mr-2">
-                                    <div class="w-8 rounded-full">
-                                        <img th:src="${avatarUrl}" alt="User Avatar" />
-                                    </div>
-                                </div>
-                                <span th:text="${displayName}">User</span>
-                            </div>
-                        </summary>
-                        <ul class="p-2 bg-base-100 rounded-t-none shadow">
-                            <li>
-                                <form th:action="@{/logout}" method="post" class="inline">
-                                    <button type="submit" class="btn btn-ghost btn-sm w-full text-left">Logout</button>
-                                </form>
-                            </li>
-                        </ul>
-                    </details>
-                </li>
-            </ul>
-        </div>
-    </div>
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
 
     <div class="container mx-auto">
         <div sec:authorize="isAuthenticated()" class="text-center">
@@ -72,5 +41,6 @@
         </div>
     </div>
 
+    <script th:src="@{/js/theme-handler.js}"></script>
 </body>
 </html> 

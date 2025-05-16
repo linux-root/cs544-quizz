@@ -8,21 +8,7 @@
     <link href="/css/output.css" rel="stylesheet">
 </head>
 <body class="min-h-screen bg-base-200">
-    <div class="navbar bg-primary text-primary-content">
-        <div class="flex-1">
-            <a th:href="@{/}" class="btn btn-ghost normal-case text-xl">Cool Project</a>
-        </div>
-        <div class="flex-none">
-            <ul class="menu menu-horizontal px-1">
-                <li sec:authorize="hasAuthority('PROFESSOR')">
-                    <a th:href="@{/quizz/my-quizzes}">My Quizzes</a>
-                </li>
-                <li>
-                    <a th:href="@{/logout}">Logout</a>
-                </li>
-            </ul>
-        </div>
-    </div>
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
 
     <div class="hero min-h-screen bg-base-200">
         <div class="hero-content text-center">
@@ -59,5 +45,6 @@
             </div>
         </div>
     </div>
+    <script th:src="@{/js/theme-handler.js}"></script>
 </body>
 </html> 

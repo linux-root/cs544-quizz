@@ -3,8 +3,6 @@ package com.example.coolproject.web;
 import com.example.coolproject.entity.Professor;
 import com.example.coolproject.entity.Question;
 import com.example.coolproject.entity.Quizz;
-import com.example.coolproject.entity.QuizzSession;
-import com.example.coolproject.entity.User;
 import com.example.coolproject.repository.ProfessorRepository;
 import com.example.coolproject.repository.UserRepository;
 import com.example.coolproject.service.AIService;
@@ -16,12 +14,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import jakarta.servlet.http.HttpSession;
 import java.util.ArrayList;
@@ -34,7 +29,6 @@ public class QuizzController {
 
   private static final Logger logger = LoggerFactory.getLogger(QuizzController.class);
   private final QuizzService quizzService;
-  private final UserRepository userRepository;
   private final ProfessorRepository professorRepository;
   private final AIService aiService;
 
@@ -44,7 +38,6 @@ public class QuizzController {
       ProfessorRepository professorRepository,
       AIService aiService) {
     this.quizzService = quizzService;
-    this.userRepository = userRepository;
     this.professorRepository = professorRepository;
     this.aiService = aiService;
   }
@@ -116,8 +109,8 @@ public class QuizzController {
     Optional<Professor> professorOpt = professorRepository.findByEmail(email);
 
     if (!professorOpt.isPresent()) {
-        logger.error("Authenticated user {} is not found as a professor in the database.", email);
-        return "redirect:/error/403";
+      logger.error("Authenticated user {} is not found as a professor in the database.", email);
+      return "redirect:/error/403";
     }
     Professor professor = professorOpt.get();
 
@@ -200,7 +193,7 @@ public class QuizzController {
     Optional<Professor> professorOpt = professorRepository.findByEmail(email);
     if (!professorOpt.isPresent()) {
       logger.error("Authenticated user {} is not found as a professor in the database for /my-quizzes.", email);
-       return "redirect:/error/403";
+      return "redirect:/error/403";
     }
     Professor professor = professorOpt.get();
     List<Quizz> quizzes = quizzService.getQuizzesByProfessor(professor);

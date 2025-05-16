@@ -42,7 +42,7 @@
                 <div class="stats shadow my-8">
                     <div class="stat">
                         <div class="stat-title">Quizz</div>
-                        <div class="stat-value text-primary" th:text="${session.quizz.description}"></div>
+                        <div class="stat-value text-primary" th:text="${session.quizzDescription}"></div>
                     </div>
                     
                     <div class="stat">
@@ -51,7 +51,7 @@
                         <div class="stat-desc">Students need this to join</div>
                     </div>
 
-                    <div class="stat">
+                    <div class="stat" th:if="${session.scheduledStartTime != null}">
                         <div class="stat-title">Scheduled Start</div>
                         <div class="stat-value text-secondary" th:text="${#temporals.format(session.scheduledStartTime, 'HH:mm')}"></div>
                         <div class="stat-desc" th:text="${#temporals.format(session.scheduledStartTime, 'dd MMM yyyy')}"></div>

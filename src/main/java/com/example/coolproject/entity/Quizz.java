@@ -17,8 +17,8 @@ public class Quizz {
     @OneToMany(mappedBy = "quizz", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Question> questions = new ArrayList<>();
     
-    @OneToMany(mappedBy = "quizz", cascade = CascadeType.ALL)
-    private List<QuizzSession> sessions = new ArrayList<>();
+    @OneToOne(mappedBy = "quizz", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    private QuizzSession session;
     
     @ManyToOne
     private Professor creator;
@@ -72,11 +72,11 @@ public class Quizz {
         return createdAt;
     }
     
-    public List<QuizzSession> getSessions() {
-        return sessions;
+    public QuizzSession getSession() {
+        return session;
     }
     
-    public void setSessions(List<QuizzSession> sessions) {
-        this.sessions = sessions;
+    public void setSession(QuizzSession session) {
+        this.session = session;
     }
 } 

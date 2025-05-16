@@ -56,13 +56,14 @@
                         <td th:text="${quizz.id}"></td>
                         <td th:text="${quizz.description}"></td>
                         <td th:text="${#temporals.format(quizz.createdAt, 'dd MMM yyyy HH:mm')}"></td>
-                        <td th:text="${quizz.sessions.size()}"></td>
+                        <td th:text="${quizz.session != null ? '1' : '0'}"></td>
                         <td>
                             <div class="flex gap-2">
                                 <a th:href="@{/quizz/update-questions/{id}(id=${quizz.id})}" class="btn btn-sm">Edit</a>
-                                <form th:action="@{/quizz/start-session/{id}(id=${quizz.id})}" method="post">
+                                <form th:if="${quizz.session == null}" th:action="@{/quizz/start-session/{id}(id=${quizz.id})}" method="post">
                                     <button type="submit" class="btn btn-sm btn-primary">Start Session</button>
                                 </form>
+                                <span th:if="${quizz.session != null}" class="badge badge-success">Session Active</span>
                             </div>
                         </td>
                     </tr>

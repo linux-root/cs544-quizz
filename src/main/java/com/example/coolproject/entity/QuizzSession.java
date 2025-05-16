@@ -12,7 +12,8 @@ public class QuizzSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @ManyToOne
+    @OneToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "quizz_id", referencedColumnName = "id")
     private Quizz quizz;
     
     private LocalDateTime scheduledStartTime;

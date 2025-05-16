@@ -42,12 +42,12 @@
                 <div class="stats shadow my-8">
                     <div class="stat">
                         <div class="stat-title">Quizz</div>
-                        <div class="stat-value text-primary" th:text="${session.quizzDescription}"></div>
+                        <div class="stat-value text-primary" th:text="${quizzSessionInfo.quizzDescription}"></div>
                     </div>
                     
                     <div class="stat">
                         <div class="stat-title">Session ID</div>
-                        <div class="stat-value text-accent" th:text="${session.id}"></div>
+                        <div class="stat-value text-accent" th:text="${quizzSessionInfo.id}"></div>
                         <div class="stat-desc">Students need this to join</div>
                     </div>
                 </div>

@@ -220,10 +220,8 @@ public class QuizzController {
     }
 
     QuizzSessionViewDTO sessionDto = quizzService.startQuizzSession(quizzId);
-    logger.info("Session DTO created with ID: {} for quizz ID: {}", sessionDto.getId(), quizzId);
-    logger.info("Quizz Description from DTO: {}", sessionDto.getQuizzDescription());
+    model.addAttribute("quizzSessionInfo", sessionDto);
 
-    model.addAttribute("session", sessionDto);
     return "quizz/session-started";
   }
 

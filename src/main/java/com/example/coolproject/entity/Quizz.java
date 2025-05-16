@@ -12,7 +12,7 @@ public class Quizz {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    private String description;
+    private String title;
     
     @OneToMany(mappedBy = "quizz", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Question> questions = new ArrayList<>();
@@ -39,12 +39,12 @@ public class Quizz {
         this.id = id;
     }
     
-    public String getDescription() {
-        return description;
+    public String getTitle() {
+        return title;
     }
     
-    public void setDescription(String description) {
-        this.description = description;
+    public void setTitle(String title) {
+        this.title = title;
     }
     
     public List<Question> getQuestions() {

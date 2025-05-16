@@ -50,21 +50,21 @@ public class QuizzController {
 
   @PostMapping("/generate")
   @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
-  public String generateQuizz(@RequestParam String description,
+  public String generateQuizz(@RequestParam String title,
       Model model,
       HttpSession session, Authentication authentication) {
-    logger.info("Generate quizz request received with description: {}", description);
+    logger.info("Generate quizz request received with title: {}", title);
     String email = authentication.getName();
 
     try {
-      List<Question> questions = aiService.generateQuestions(description);
+      List<Question> questions = aiService.generateQuestions(title);
       logger.info("Generated {} questions for professor {}", questions.size(), email);
 
       session.setAttribute("tempQuestions", questions);
-      session.setAttribute("quizzDescription", description);
+      session.setAttribute("quizzTitle", title);
 
       model.addAttribute("questions", questions);
-      model.addAttribute("description", description);
+      model.addAttribute("title", title);
 
       return "quizz/questions";
     } catch (Exception e) {
@@ -76,21 +76,21 @@ public class QuizzController {
 
   @PostMapping("/regenerate")
   @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
-  public String regenerateQuestions(@RequestParam String description,
+  public String regenerateQuestions(@RequestParam String title,
       Model model,
       HttpSession session, Authentication authentication) {
-    logger.info("Regenerate questions request received with description: {}", description);
+    logger.info("Regenerate questions request received with title: {}", title);
     String email = authentication.getName();
 
     try {
-      List<Question> questions = aiService.generateQuestions(description);
+      List<Question> questions = aiService.generateQuestions(title);
       logger.info("Regenerated {} questions for professor {}", questions.size(), email);
 
       session.setAttribute("tempQuestions", questions);
-      session.setAttribute("quizzDescription", description);
+      session.setAttribute("quizzTitle", title);
 
       model.addAttribute("questions", questions);
-      model.addAttribute("description", description);
+      model.addAttribute("title", title);
 
       return "quizz/questions";
     } catch (Exception e) {
@@ -114,9 +114,9 @@ public class QuizzController {
     }
     Professor professor = professorOpt.get();
 
-    String description = (String) httpSession.getAttribute("quizzDescription");
-    if (description == null) {
-      logger.error("No quizz description found in session for professor {}", email);
+    String title = (String) httpSession.getAttribute("quizzTitle");
+    if (title == null) {
+      logger.error("No quizz title found in session for professor {}", email);
       return "redirect:/quizz/create?error=session";
     }
 
@@ -130,11 +130,11 @@ public class QuizzController {
         questions.add(question);
       }
 
-      Quizz quizz = quizzService.createQuizzWithQuestions(description, professor, questions);
+      Quizz quizz = quizzService.createQuizzWithQuestions(title, professor, questions);
       logger.info("Quizz created with ID: {} by professor {}", quizz.getId(), email);
 
       httpSession.removeAttribute("tempQuestions");
-      httpSession.removeAttribute("quizzDescription");
+      httpSession.removeAttribute("quizzTitle");
 
       model.addAttribute("quizz", quizz);
       return "quizz/session-options";
@@ -179,7 +179,7 @@ public class QuizzController {
     }
 
     QuizzSessionViewDTO sessionDto = quizzService.scheduleQuizzSession(quizzId, minutesFromNow);
-    logger.info("Session DTO scheduled for quizz ID {} by professor {}", quizzId, email);
+    logger.info("Session DTO scheduled for quizz ID {} by professor {}. Title: {}", quizzId, email, sessionDto.getQuizzTitle());
     model.addAttribute("quizzSessionInfo", sessionDto);
     return "quizz/session-scheduled";
   }

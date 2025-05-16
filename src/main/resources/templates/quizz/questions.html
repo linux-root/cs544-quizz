@@ -28,17 +28,17 @@
         <h1 class="text-3xl font-bold mb-6">Review Generated Questions</h1>
         
         <div class="mb-8 p-4 bg-base-100 rounded-lg shadow">
-            <h2 class="text-xl font-semibold mb-2">Quizz Description</h2>
-            <p th:text="${description}" class="italic text-gray-600"></p>
+            <h2 class="text-xl font-semibold mb-2">Quizz Title</h2>
+            <p th:text="${title}" class="italic text-gray-600"></p>
             
             <form th:action="@{/quizz/regenerate}" method="post" class="mt-4">
                 <div class="form-control">
-                    <label class="label" for="description">
-                        <span class="label-text">Edit Description to Regenerate Questions</span>
+                    <label class="label" for="title">
+                        <span class="label-text">Edit Title to Regenerate Questions</span>
                     </label>
-                    <textarea id="description" name="description" 
+                    <textarea id="title" name="title" 
                         class="textarea textarea-bordered h-16" 
-                        th:text="${description}"></textarea>
+                        th:text="${title}"></textarea>
                 </div>
                 <div class="form-control mt-2">
                     <button type="submit" class="btn btn-outline btn-secondary">Regenerate Questions</button>

@@ -42,11 +42,11 @@ public class QuizzService {
    * Create a new quiz with AI-generated questions based on the description
    */
   @Transactional
-  public Quizz createQuizzWithGeneratedQuestions(String description, Professor professor) {
-    logger.info("Creating quizz with description: {} for professor: {}", description, professor.getEmail());
+  public Quizz createQuizzWithGeneratedQuestions(String title, Professor professor) {
+    logger.info("Creating quizz with title: {} for professor: {}", title, professor.getEmail());
 
     Quizz quizz = new Quizz();
-    quizz.setDescription(description);
+    quizz.setTitle(title);
     quizz.setCreator(professor);
 
     logger.debug("Saving initial quizz");
@@ -55,7 +55,7 @@ public class QuizzService {
 
     // Generate questions using AI
     logger.debug("Generating questions using AI service");
-    List<Question> questions = aiService.generateQuestions(description);
+    List<Question> questions = aiService.generateQuestions(title);
     logger.info("Generated {} questions", questions.size());
 
     // Associate questions with the quiz
@@ -76,12 +76,12 @@ public class QuizzService {
    * Create a new quiz with pre-defined questions
    */
   @Transactional
-  public Quizz createQuizzWithQuestions(String description, Professor professor, List<Question> questions) {
-    logger.info("Creating quizz with provided questions, description: {} for professor: {}", description,
+  public Quizz createQuizzWithQuestions(String title, Professor professor, List<Question> questions) {
+    logger.info("Creating quizz with provided questions, title: {} for professor: {}", title,
         professor.getEmail());
 
     Quizz quizz = new Quizz();
-    quizz.setDescription(description);
+    quizz.setTitle(title);
     quizz.setCreator(professor);
 
     logger.debug("Saving initial quizz");
@@ -108,8 +108,8 @@ public class QuizzService {
    * Regenerate questions for an existing quiz
    */
   @Transactional
-  public Quizz regenerateQuizzQuestions(Long quizzId, String newDescription) {
-    logger.info("Regenerating questions for quizz ID: {} with new description: {}", quizzId, newDescription);
+  public Quizz regenerateQuizzQuestions(Long quizzId, String newTitle) {
+    logger.info("Regenerating questions for quizz ID: {} with new title: {}", quizzId, newTitle);
 
     Quizz quizz = quizzRepository.findById(quizzId)
         .orElseThrow(() -> {
@@ -118,7 +118,7 @@ public class QuizzService {
         });
 
     // Update description if changed
-    quizz.setDescription(newDescription);
+    quizz.setTitle(newTitle);
 
     // Clear existing questions
     logger.debug("Clearing {} existing questions", quizz.getQuestions().size());
@@ -126,7 +126,7 @@ public class QuizzService {
 
     // Generate new questions
     logger.debug("Generating new questions using AI service");
-    List<Question> newQuestions = aiService.generateQuestions(newDescription);
+    List<Question> newQuestions = aiService.generateQuestions(newTitle);
     logger.info("Generated {} new questions", newQuestions.size());
 
     // Associate new questions with the quiz
@@ -210,19 +210,19 @@ public class QuizzService {
     }
     logger.info("Session entity started with ID: {} for quizz ID: {}", persistedSessionEntity.getId(), quizzId);
     
-    String quizzDescription;
-    if (updatedQuizz.getDescription() != null) {
-        quizzDescription = updatedQuizz.getDescription();
-        logger.debug("Quizz description for session {} (from Quizz ID {}): {}", 
-                     persistedSessionEntity.getId(), updatedQuizz.getId(), quizzDescription);
+    String quizzTitle;
+    if (updatedQuizz.getTitle() != null) {
+        quizzTitle = updatedQuizz.getTitle();
+        logger.debug("Quizz title for session {} (from Quizz ID {}): {}", 
+                     persistedSessionEntity.getId(), updatedQuizz.getId(), quizzTitle);
     } else {
-        quizzDescription = "Error: Quizz description missing"; // Fallback or specific error
-        logger.error("Quizz (ID: {}) has a null description. Session ID: {}", 
+        quizzTitle = "Error: Quizz title missing";
+        logger.error("Quizz (ID: {}) has a null title. Session ID: {}", 
                      updatedQuizz.getId(), persistedSessionEntity.getId());
-        // Consider if this state warrants an exception if Quizz description is mandatory
+        // Consider if this state warrants an exception if Quizz title is mandatory
     }
     
-    return new QuizzSessionViewDTO(persistedSessionEntity.getId(), quizzDescription);
+    return new QuizzSessionViewDTO(persistedSessionEntity.getId(), quizzTitle);
   }
 
   /**
@@ -261,19 +261,19 @@ public class QuizzService {
     }
     logger.info("Session entity scheduled with ID: {} for quizz ID: {} at {}", persistedSessionEntity.getId(), quizzId, persistedSessionEntity.getScheduledStartTime());
     
-    String quizzDescription;
-    if (updatedQuizz.getDescription() != null) {
-        quizzDescription = updatedQuizz.getDescription();
-        logger.debug("Quizz description for scheduled session {} (from Quizz ID {}): {}", 
-                     persistedSessionEntity.getId(), updatedQuizz.getId(), quizzDescription);
+    String quizzTitle;
+    if (updatedQuizz.getTitle() != null) {
+        quizzTitle = updatedQuizz.getTitle();
+        logger.debug("Quizz title for scheduled session {} (from Quizz ID {}): {}", 
+                     persistedSessionEntity.getId(), updatedQuizz.getId(), quizzTitle);
     } else {
-        quizzDescription = "Error: Quizz description missing"; // Fallback or specific error
-        logger.error("Quizz (ID: {}) has a null description. Scheduled session ID: {}", 
+        quizzTitle = "Error: Quizz title missing";
+        logger.error("Quizz (ID: {}) has a null title. Scheduled session ID: {}", 
                      updatedQuizz.getId(), persistedSessionEntity.getId());
         // Consider if this state warrants an exception
     }
 
-    return new QuizzSessionViewDTO(persistedSessionEntity.getId(), quizzDescription, persistedSessionEntity.getScheduledStartTime());
+    return new QuizzSessionViewDTO(persistedSessionEntity.getId(), quizzTitle, persistedSessionEntity.getScheduledStartTime());
   }
 
   /**

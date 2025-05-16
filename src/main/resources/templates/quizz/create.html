@@ -29,7 +29,7 @@
             <div class="text-center lg:text-left">
                 <h1 class="text-5xl font-bold">Create New Quizz</h1>
                 <p class="py-6">
-                    Enter a detailed description for your quiz. Our AI system will generate 5 questions based on your description.
+                    Enter a detailed title for your quiz. Our AI system will generate 5 questions based on your title.
                     You'll have a chance to review and modify the questions afterward.
                 </p>
             </div>
@@ -44,12 +44,12 @@
                 
                 <form th:action="@{/quizz/generate}" method="post" class="card-body">
                     <div class="form-control">
-                        <label class="label" for="description">
-                            <span class="label-text">Quiz Description</span>
+                        <label class="label" for="title">
+                            <span class="label-text">Quiz Title</span>
                         </label>
-                        <textarea id="description" name="description" 
+                        <textarea id="title" name="title" 
                             class="textarea textarea-bordered h-24" 
-                            placeholder="Describe what this quizz should be about. For example: 'Java Object-Oriented Programming fundamentals'"></textarea>
+                            placeholder="Enter the title for this quizz. For example: 'Java Object-Oriented Programming fundamentals'"></textarea>
                     </div>
                     <div class="form-control mt-6">
                         <button type="submit" class="btn btn-primary">Generate Questions</button>

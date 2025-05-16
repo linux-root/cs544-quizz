@@ -1222,6 +1222,9 @@
   .h-32 {
     height: calc(var(--spacing) * 32);
   }
+  .h-auto {
+    height: auto;
+  }
   .min-h-screen {
     min-height: 100vh;
   }
@@ -1230,6 +1233,9 @@
   }
   .w-8 {
     width: calc(var(--spacing) * 8);
+  }
+  .w-64 {
+    width: calc(var(--spacing) * 64);
   }
   .w-full {
     width: 100%;
@@ -1448,6 +1454,15 @@
     @supports (color: color-mix(in lab, red, red)) {
       color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
     }
+  }
+  .text-base-content\/80 {
+    color: var(--color-base-content);
+    @supports (color: color-mix(in lab, red, red)) {
+      color: color-mix(in oklab, var(--color-base-content) 80%, transparent);
+    }
+  }
+  .text-error {
+    color: var(--color-error);
   }
   .text-gray-600 {
     color: var(--color-gray-600);

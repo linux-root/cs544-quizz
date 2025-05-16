@@ -7,7 +7,6 @@ import com.example.coolproject.entity.QuizzSession;
 import com.example.coolproject.repository.QuestionRepository;
 import com.example.coolproject.repository.QuizzRepository;
 import com.example.coolproject.repository.QuizzSessionRepository;
-import com.example.coolproject.web.dto.QuizzSessionViewDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -180,100 +179,79 @@ public class QuizzService {
    * Start a quiz session immediately
    */
   @Transactional
-  public QuizzSessionViewDTO startQuizzSession(Long quizzId) {
+  public QuizzSession startQuizzSession(Long quizzId) {
     logger.info("Starting session for quizz ID: {}", quizzId);
-    
+
     Quizz quizz = quizzRepository.findById(quizzId)
-            .orElseThrow(() -> {
-                logger.error("Quizz not found with ID: {}", quizzId);
-                return new IllegalArgumentException("Quizz not found with ID: " + quizzId);
-            });
-    
+        .orElseThrow(() -> {
+          logger.error("Quizz not found with ID: {}", quizzId);
+          return new IllegalArgumentException("Quizz not found with ID: " + quizzId);
+        });
+
     if (quizz.getSession() != null) {
-        logger.error("Quizz with ID: {} already has a session", quizzId);
-        throw new IllegalStateException("Quizz with ID: " + quizzId + " already has a session");
+      logger.error("Quizz with ID: {} already has a session", quizzId);
+      throw new IllegalStateException("Quizz with ID: " + quizzId + " already has a session");
     }
-    
+
     QuizzSession sessionEntity = new QuizzSession();
-    sessionEntity.setQuizz(quizz); 
+    sessionEntity.setQuizz(quizz);
     sessionEntity.setActualStartTime(LocalDateTime.now());
     sessionEntity.setStatus(QuizzSession.SessionStatus.OPEN);
-    
-    quizz.setSession(sessionEntity); 
-    
-    Quizz updatedQuizz = quizzRepository.save(quizz);
-    
-    QuizzSession persistedSessionEntity = updatedQuizz.getSession();
-    if (persistedSessionEntity == null || persistedSessionEntity.getId() == null) {
-        logger.error("Session was not persisted correctly via cascade for quizz ID: {}", quizzId);
-        throw new IllegalStateException("Session not persisted via cascade for quizz ID: " + quizzId);
-    }
-    logger.info("Session entity started with ID: {} for quizz ID: {}", persistedSessionEntity.getId(), quizzId);
-    
-    String quizzTitle;
-    if (updatedQuizz.getTitle() != null) {
-        quizzTitle = updatedQuizz.getTitle();
-        logger.debug("Quizz title for session {} (from Quizz ID {}): {}", 
-                     persistedSessionEntity.getId(), updatedQuizz.getId(), quizzTitle);
-    } else {
-        quizzTitle = "Error: Quizz title missing";
-        logger.error("Quizz (ID: {}) has a null title. Session ID: {}", 
-                     updatedQuizz.getId(), persistedSessionEntity.getId());
-        // Consider if this state warrants an exception if Quizz title is mandatory
-    }
-    
-    return new QuizzSessionViewDTO(persistedSessionEntity.getId(), quizzTitle);
+
+    quizz.setSession(sessionEntity);
+    quizzRepository.save(quizz);
+    return sessionEntity;
   }
 
   /**
    * Schedule a quiz session to start after X minutes
    */
   @Transactional
-  public QuizzSessionViewDTO scheduleQuizzSession(Long quizzId, int minutesFromNow) {
+  public void scheduleQuizzSession(Long quizzId, int minutesFromNow) {
     logger.info("Scheduling session for quizz ID: {} to start in {} minutes", quizzId, minutesFromNow);
-    
+
     Quizz quizz = quizzRepository.findById(quizzId)
-            .orElseThrow(() -> {
-                logger.error("Quizz not found with ID: {}", quizzId);
-                return new IllegalArgumentException("Quizz not found with ID: " + quizzId);
-            });
-    
+        .orElseThrow(() -> {
+          logger.error("Quizz not found with ID: {}", quizzId);
+          return new IllegalArgumentException("Quizz not found with ID: " + quizzId);
+        });
+
     if (quizz.getSession() != null) {
-        logger.error("Quizz with ID: {} already has a session", quizzId);
-        throw new IllegalStateException("Quizz with ID: " + quizzId + " already has a session");
+      logger.error("Quizz with ID: {} already has a session", quizzId);
+      throw new IllegalStateException("Quizz with ID: " + quizzId + " already has a session");
     }
-    
+
     LocalDateTime scheduledTime = LocalDateTime.now().plusMinutes(minutesFromNow);
-    
+
     QuizzSession sessionEntity = new QuizzSession();
     sessionEntity.setQuizz(quizz);
     sessionEntity.setScheduledStartTime(scheduledTime);
     sessionEntity.setStatus(QuizzSession.SessionStatus.SCHEDULED);
-    
+
     quizz.setSession(sessionEntity);
-    
+
     Quizz updatedQuizz = quizzRepository.save(quizz);
-    
+
     QuizzSession persistedSessionEntity = updatedQuizz.getSession();
     if (persistedSessionEntity == null || persistedSessionEntity.getId() == null) {
-        logger.error("Session was not persisted correctly via cascade for quizz ID: {}", quizzId);
-        throw new IllegalStateException("Session not persisted via cascade for quizz ID: " + quizzId);
+      logger.error("Session was not persisted correctly via cascade for quizz ID: {}", quizzId);
+      throw new IllegalStateException("Session not persisted via cascade for quizz ID: " + quizzId);
     }
-    logger.info("Session entity scheduled with ID: {} for quizz ID: {} at {}", persistedSessionEntity.getId(), quizzId, persistedSessionEntity.getScheduledStartTime());
-    
+    logger.info("Session entity scheduled with ID: {} for quizz ID: {} at {}", persistedSessionEntity.getId(), quizzId,
+        persistedSessionEntity.getScheduledStartTime());
+
     String quizzTitle;
     if (updatedQuizz.getTitle() != null) {
-        quizzTitle = updatedQuizz.getTitle();
-        logger.debug("Quizz title for scheduled session {} (from Quizz ID {}): {}", 
-                     persistedSessionEntity.getId(), updatedQuizz.getId(), quizzTitle);
+      quizzTitle = updatedQuizz.getTitle();
+      logger.debug("Quizz title for scheduled session {} (from Quizz ID {}): {}",
+          persistedSessionEntity.getId(), updatedQuizz.getId(), quizzTitle);
     } else {
-        quizzTitle = "Error: Quizz title missing";
-        logger.error("Quizz (ID: {}) has a null title. Scheduled session ID: {}", 
-                     updatedQuizz.getId(), persistedSessionEntity.getId());
-        // Consider if this state warrants an exception
+      quizzTitle = "Error: Quizz title missing";
+      logger.error("Quizz (ID: {}) has a null title. Scheduled session ID: {}",
+          updatedQuizz.getId(), persistedSessionEntity.getId());
+      // Consider if this state warrants an exception
     }
 
-    return new QuizzSessionViewDTO(persistedSessionEntity.getId(), quizzTitle, persistedSessionEntity.getScheduledStartTime());
   }
 
   /**

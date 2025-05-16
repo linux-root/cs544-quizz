@@ -3,12 +3,12 @@ package com.example.coolproject.web;
 import com.example.coolproject.entity.Professor;
 import com.example.coolproject.entity.Question;
 import com.example.coolproject.entity.Quizz;
+import com.example.coolproject.entity.QuizzSession;
 import com.example.coolproject.repository.ProfessorRepository;
 import com.example.coolproject.repository.UserRepository;
 import com.example.coolproject.service.AIService;
 import com.example.coolproject.service.QuizzService;
 import com.example.coolproject.web.dto.QuestionFormData;
-import com.example.coolproject.web.dto.QuizzSessionViewDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -158,8 +158,8 @@ public class QuizzController {
       return "quizz/my-quizzes";
     }
 
-    QuizzSessionViewDTO sessionDto = quizzService.startQuizzSession(quizzId);
-    model.addAttribute("quizzSessionInfo", sessionDto);
+    QuizzSession session = quizzService.startQuizzSession(quizzId);
+    model.addAttribute("quizzSessionInfo", session);
     return "quizz/session-started";
   }
 
@@ -168,19 +168,24 @@ public class QuizzController {
   public String scheduleQuizzSession(@PathVariable Long quizzId,
       @RequestParam int minutesFromNow,
       Model model, Authentication authentication) {
-    logger.info("Schedule session request for quizz ID: {} by professor {}", quizzId, authentication.getName());
-    String email = authentication.getName();
-
-    Quizz quizz = quizzService.getQuizzById(quizzId);
-    if (quizz.getSession() != null) {
-      logger.warn("Quizz {} already has an active session. Requested by professor {}", quizzId, email);
-      model.addAttribute("error", "This quizz already has an active session");
-      return "quizz/my-quizzes";
-    }
-
-    QuizzSessionViewDTO sessionDto = quizzService.scheduleQuizzSession(quizzId, minutesFromNow);
-    logger.info("Session DTO scheduled for quizz ID {} by professor {}. Title: {}", quizzId, email, sessionDto.getQuizzTitle());
-    model.addAttribute("quizzSessionInfo", sessionDto);
+    // logger.info("Schedule session request for quizz ID: {} by professor {}",
+    // quizzId, authentication.getName());
+    // String email = authentication.getName();
+    //
+    // Quizz quizz = quizzService.getQuizzById(quizzId);
+    // if (quizz.getSession() != null) {
+    // logger.warn("Quizz {} already has an active session. Requested by professor
+    // {}", quizzId, email);
+    // model.addAttribute("error", "This quizz already has an active session");
+    // return "quizz/my-quizzes";
+    // }
+    //
+    // QuizzSessionViewDTO sessionDto = quizzService.scheduleQuizzSession(quizzId,
+    // minutesFromNow);
+    // logger.info("Session DTO scheduled for quizz ID {} by professor {}. Title:
+    // {}", quizzId, email,
+    // sessionDto.getQuizzTitle());
+    // model.addAttribute("quizzSessionInfo", sessionDto);
     return "quizz/session-scheduled";
   }
 

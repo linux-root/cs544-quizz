@@ -51,24 +51,27 @@ public class QuizzController {
   @PostMapping("/generate")
   @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
   public String generateQuizz(@RequestParam String title,
+      @RequestParam String prompt,
       Model model,
       HttpSession session, Authentication authentication) {
-    logger.info("Generate quizz request received with title: {}", title);
+    logger.info("Generate quizz request received with title: '{}', prompt: '{}'", title, prompt);
     String email = authentication.getName();
 
     try {
-      List<Question> questions = aiService.generateQuestions(title);
+      List<Question> questions = aiService.generateQuestions(prompt);
       logger.info("Generated {} questions for professor {}", questions.size(), email);
 
       session.setAttribute("tempQuestions", questions);
       session.setAttribute("quizzTitle", title);
+      session.setAttribute("quizzPrompt", prompt);
 
       model.addAttribute("questions", questions);
       model.addAttribute("title", title);
+      model.addAttribute("prompt", prompt);
 
       return "quizz/questions";
     } catch (Exception e) {
-      logger.error("Error generating quizz for professor {}: ", email, e);
+      logger.error("Error generating quizz for professor {}: title '{}', prompt '{}'", email, title, prompt, e);
       model.addAttribute("error", "Failed to generate quiz: " + e.getMessage());
       return "redirect:/quizz/create?error=true";
     }
@@ -77,24 +80,27 @@ public class QuizzController {
   @PostMapping("/regenerate")
   @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
   public String regenerateQuestions(@RequestParam String title,
+      @RequestParam String prompt,
       Model model,
       HttpSession session, Authentication authentication) {
-    logger.info("Regenerate questions request received with title: {}", title);
+    logger.info("Regenerate questions request received with title: '{}', prompt: '{}'", title, prompt);
     String email = authentication.getName();
 
     try {
-      List<Question> questions = aiService.generateQuestions(title);
+      List<Question> questions = aiService.generateQuestions(prompt);
       logger.info("Regenerated {} questions for professor {}", questions.size(), email);
 
       session.setAttribute("tempQuestions", questions);
       session.setAttribute("quizzTitle", title);
+      session.setAttribute("quizzPrompt", prompt);
 
       model.addAttribute("questions", questions);
       model.addAttribute("title", title);
+      model.addAttribute("prompt", prompt);
 
       return "quizz/questions";
     } catch (Exception e) {
-      logger.error("Error regenerating questions for professor {}: ", email, e);
+      logger.error("Error regenerating questions for professor {}: title '{}', prompt '{}'", email, title, prompt, e);
       return "redirect:/quizz/create?error=regenerate";
     }
   }
@@ -135,6 +141,7 @@ public class QuizzController {
 
       httpSession.removeAttribute("tempQuestions");
       httpSession.removeAttribute("quizzTitle");
+      httpSession.removeAttribute("quizzPrompt");
 
       model.addAttribute("quizz", quizz);
       return "quizz/session-options";
@@ -152,7 +159,7 @@ public class QuizzController {
     String email = authentication.getName();
 
     Quizz quizz = quizzService.getQuizzById(quizzId);
-    if (quizz.getSession() != null) {
+    if (quizz.getSession() != null && quizz.getSession().getStatus() == QuizzSession.SessionStatus.OPEN) {
       logger.warn("Quizz {} already has an active session. Requested by professor {}", quizzId, email);
       model.addAttribute("error", "This quizz already has an active session");
       return "quizz/my-quizzes";
@@ -168,24 +175,19 @@ public class QuizzController {
   public String scheduleQuizzSession(@PathVariable Long quizzId,
       @RequestParam int minutesFromNow,
       Model model, Authentication authentication) {
-    // logger.info("Schedule session request for quizz ID: {} by professor {}",
-    // quizzId, authentication.getName());
-    // String email = authentication.getName();
-    //
-    // Quizz quizz = quizzService.getQuizzById(quizzId);
-    // if (quizz.getSession() != null) {
-    // logger.warn("Quizz {} already has an active session. Requested by professor
-    // {}", quizzId, email);
-    // model.addAttribute("error", "This quizz already has an active session");
-    // return "quizz/my-quizzes";
-    // }
-    //
-    // QuizzSessionViewDTO sessionDto = quizzService.scheduleQuizzSession(quizzId,
-    // minutesFromNow);
-    // logger.info("Session DTO scheduled for quizz ID {} by professor {}. Title:
-    // {}", quizzId, email,
-    // sessionDto.getQuizzTitle());
-    // model.addAttribute("quizzSessionInfo", sessionDto);
+    logger.info("Schedule session request for quizz ID: {} by professor {}", quizzId, authentication.getName());
+    String email = authentication.getName();
+
+    Quizz quizz = quizzService.getQuizzById(quizzId);
+    if (quizz.getSession() != null) {
+      logger.warn("Quizz {} already has a session (status: {}). Requested by professor {}", quizzId, quizz.getSession().getStatus(), email);
+      model.addAttribute("error", "This quizz already has a session or is scheduled.");
+      return "quizz/my-quizzes";
+    }
+
+    QuizzSession session = quizzService.scheduleQuizzSession(quizzId, minutesFromNow);
+    logger.info("Session scheduled with ID {} for quizz ID {} by professor {}. Title: {}", session.getId(), quizzId, email, session.getQuizz().getTitle());
+    model.addAttribute("quizzSessionInfo", session);
     return "quizz/session-scheduled";
   }
 

@@ -44,6 +44,12 @@
                         <div class="stat-title">Quizz Title</div>
                         <div class="stat-value text-primary" th:text="${quizzSessionInfo.quizz.title}"></div>
                     </div>
+                    
+                    <div class="stat">
+                        <div class="stat-title">Session ID</div>
+                        <div class="stat-value text-accent" th:text="${quizzSessionInfo.id}"></div>
+                        <div class="stat-desc">Students need this to join</div>
+                    </div>
                 </div>
                 
                 <div class="flex flex-col md:flex-row gap-4 justify-center">

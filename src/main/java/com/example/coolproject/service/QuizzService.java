@@ -41,8 +41,8 @@ public class QuizzService {
    * Create a new quiz with AI-generated questions based on the description
    */
   @Transactional
-  public Quizz createQuizzWithGeneratedQuestions(String title, Professor professor) {
-    logger.info("Creating quizz with title: {} for professor: {}", title, professor.getEmail());
+  public Quizz createQuizzWithGeneratedQuestions(String title, String prompt, Professor professor) {
+    logger.info("Creating quizz with title: '{}', prompt: '{}' for professor: {}", title, prompt, professor.getEmail());
 
     Quizz quizz = new Quizz();
     quizz.setTitle(title);
@@ -53,8 +53,8 @@ public class QuizzService {
     logger.info("Initial quizz saved with ID: {}", savedQuizz.getId());
 
     // Generate questions using AI
-    logger.debug("Generating questions using AI service");
-    List<Question> questions = aiService.generateQuestions(title);
+    logger.debug("Generating questions using AI service with prompt: {}", prompt);
+    List<Question> questions = aiService.generateQuestions(prompt);
     logger.info("Generated {} questions", questions.size());
 
     // Associate questions with the quiz
@@ -107,8 +107,8 @@ public class QuizzService {
    * Regenerate questions for an existing quiz
    */
   @Transactional
-  public Quizz regenerateQuizzQuestions(Long quizzId, String newTitle) {
-    logger.info("Regenerating questions for quizz ID: {} with new title: {}", quizzId, newTitle);
+  public Quizz regenerateQuizzQuestions(Long quizzId, String newTitle, String newPrompt) {
+    logger.info("Regenerating questions for quizz ID: {} with new title: '{}', new prompt: '{}'", quizzId, newTitle, newPrompt);
 
     Quizz quizz = quizzRepository.findById(quizzId)
         .orElseThrow(() -> {
@@ -116,7 +116,7 @@ public class QuizzService {
           return new IllegalArgumentException("Quizz not found with ID: " + quizzId);
         });
 
-    // Update description if changed
+    // Update title if changed
     quizz.setTitle(newTitle);
 
     // Clear existing questions
@@ -124,8 +124,8 @@ public class QuizzService {
     quizz.getQuestions().clear();
 
     // Generate new questions
-    logger.debug("Generating new questions using AI service");
-    List<Question> newQuestions = aiService.generateQuestions(newTitle);
+    logger.debug("Generating new questions using AI service with prompt: {}", newPrompt);
+    List<Question> newQuestions = aiService.generateQuestions(newPrompt);
     logger.info("Generated {} new questions", newQuestions.size());
 
     // Associate new questions with the quiz
@@ -199,15 +199,15 @@ public class QuizzService {
     sessionEntity.setStatus(QuizzSession.SessionStatus.OPEN);
 
     quizz.setSession(sessionEntity);
-    quizzRepository.save(quizz);
-    return sessionEntity;
+    Quizz savedQuizz = quizzRepository.save(quizz);
+    return savedQuizz.getSession();
   }
 
   /**
    * Schedule a quiz session to start after X minutes
    */
   @Transactional
-  public void scheduleQuizzSession(Long quizzId, int minutesFromNow) {
+  public QuizzSession scheduleQuizzSession(Long quizzId, int minutesFromNow) {
     logger.info("Scheduling session for quizz ID: {} to start in {} minutes", quizzId, minutesFromNow);
 
     Quizz quizz = quizzRepository.findById(quizzId)
@@ -240,18 +240,7 @@ public class QuizzService {
     logger.info("Session entity scheduled with ID: {} for quizz ID: {} at {}", persistedSessionEntity.getId(), quizzId,
         persistedSessionEntity.getScheduledStartTime());
 
-    String quizzTitle;
-    if (updatedQuizz.getTitle() != null) {
-      quizzTitle = updatedQuizz.getTitle();
-      logger.debug("Quizz title for scheduled session {} (from Quizz ID {}): {}",
-          persistedSessionEntity.getId(), updatedQuizz.getId(), quizzTitle);
-    } else {
-      quizzTitle = "Error: Quizz title missing";
-      logger.error("Quizz (ID: {}) has a null title. Scheduled session ID: {}",
-          updatedQuizz.getId(), persistedSessionEntity.getId());
-      // Consider if this state warrants an exception
-    }
-
+    return persistedSessionEntity;
   }
 
   /**

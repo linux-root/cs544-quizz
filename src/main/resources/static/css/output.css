@@ -1843,11 +1843,6 @@
     --btn-color: var(--color-secondary);
     --btn-fg: var(--color-secondary-content);
   }
-  .md\:mt-0 {
-    @media (width >= 48rem) {
-      margin-top: calc(var(--spacing) * 0);
-    }
-  }
   .md\:grid-cols-2 {
     @media (width >= 48rem) {
       grid-template-columns: repeat(2, minmax(0, 1fr));

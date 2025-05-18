@@ -108,7 +108,8 @@ public class QuizzService {
    */
   @Transactional
   public Quizz regenerateQuizzQuestions(Long quizzId, String newTitle, String newPrompt) {
-    logger.info("Regenerating questions for quizz ID: {} with new title: '{}', new prompt: '{}'", quizzId, newTitle, newPrompt);
+    logger.info("Regenerating questions for quizz ID: {} with new title: '{}', new prompt: '{}'", quizzId, newTitle,
+        newPrompt);
 
     Quizz quizz = quizzRepository.findById(quizzId)
         .orElseThrow(() -> {
@@ -180,8 +181,6 @@ public class QuizzService {
    */
   @Transactional
   public QuizzSession startQuizzSession(Long quizzId) {
-    logger.info("Starting session for quizz ID: {}", quizzId);
-
     Quizz quizz = quizzRepository.findById(quizzId)
         .orElseThrow(() -> {
           logger.error("Quizz not found with ID: {}", quizzId);
@@ -189,7 +188,6 @@ public class QuizzService {
         });
 
     if (quizz.getSession() != null) {
-      logger.error("Quizz with ID: {} already has a session", quizzId);
       throw new IllegalStateException("Quizz with ID: " + quizzId + " already has a session");
     }
 
@@ -230,17 +228,8 @@ public class QuizzService {
 
     quizz.setSession(sessionEntity);
 
-    Quizz updatedQuizz = quizzRepository.save(quizz);
-
-    QuizzSession persistedSessionEntity = updatedQuizz.getSession();
-    if (persistedSessionEntity == null || persistedSessionEntity.getId() == null) {
-      logger.error("Session was not persisted correctly via cascade for quizz ID: {}", quizzId);
-      throw new IllegalStateException("Session not persisted via cascade for quizz ID: " + quizzId);
-    }
-    logger.info("Session entity scheduled with ID: {} for quizz ID: {} at {}", persistedSessionEntity.getId(), quizzId,
-        persistedSessionEntity.getScheduledStartTime());
-
-    return persistedSessionEntity;
+    quizzRepository.save(quizz);
+    return sessionEntity;
   }
 
   /**

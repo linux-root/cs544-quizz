@@ -2,7 +2,9 @@ package com.example.coolproject.web;
 
 import com.example.coolproject.entity.Student;
 import com.example.coolproject.entity.User;
+import com.example.coolproject.entity.QuizzSession;
 import com.example.coolproject.repository.UserRepository;
+import com.example.coolproject.service.QuizzService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -17,10 +19,12 @@ import java.util.stream.Collectors;
 public class HomeController {
 
     private final UserRepository userRepository;
+    private final QuizzService quizzService;
 
     @Autowired
-    public HomeController(UserRepository userRepository) {
+    public HomeController(UserRepository userRepository, QuizzService quizzService) {
         this.userRepository = userRepository;
+        this.quizzService = quizzService;
     }
 
     @GetMapping("/")
@@ -49,9 +53,11 @@ public class HomeController {
         String rolesString;
         String avatarUrl = null;
         boolean isProfessor;
+        User currentUser = null; // Variable to hold the current user
 
         if (userOptional.isPresent()) {
             User user = userOptional.get();
+            currentUser = user; // Store the user
             displayName = user.getName();
             rolesString = user.getRoles().stream().collect(Collectors.joining(", "));
             isProfessor = user.getRoles().contains("ROLE_PROFESSOR");
@@ -87,7 +93,22 @@ public class HomeController {
         if (isProfessor) {
             return "professor-home";
         } else {
-            // All other authenticated users go to student home page.
+            // For Students (or any non-professor authenticated user)
+            // Check for any open quiz sessions
+            // The check 'currentUser instanceof Student' ensures we only do this for actual students,
+            // although current logic routes any non-professor here.
+            if (currentUser instanceof Student) { 
+                Optional<QuizzSession> openSessionOpt = quizzService.findAnyOpenQuizSession();
+                if (openSessionOpt.isPresent()) {
+                    model.addAttribute("hasOpenQuizSession", true);
+                    model.addAttribute("openQuizSessionId", openSessionOpt.get().getId());
+                    model.addAttribute("openQuizSessionTitle", openSessionOpt.get().getQuizz().getTitle());
+                } else {
+                    model.addAttribute("hasOpenQuizSession", false);
+                }
+            } else {
+                 model.addAttribute("hasOpenQuizSession", false); // Default for non-students in this branch
+            }
             return "student-home";
         }
     }

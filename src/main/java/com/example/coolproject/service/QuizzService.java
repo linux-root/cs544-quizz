@@ -4,6 +4,7 @@ import com.example.coolproject.entity.Professor;
 import com.example.coolproject.entity.Question;
 import com.example.coolproject.entity.Quizz;
 import com.example.coolproject.entity.QuizzSession;
+import com.example.coolproject.entity.Student;
 import com.example.coolproject.repository.QuestionRepository;
 import com.example.coolproject.repository.QuizzRepository;
 import com.example.coolproject.repository.QuizzSessionRepository;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -396,5 +398,21 @@ public class QuizzService {
           professor.getId());
     }
     return hasOpenSession;
+  }
+
+  // Renamed and simplified: checks for ANY open quiz session available to all students.
+  public Optional<QuizzSession> findAnyOpenQuizSession() {
+    logger.debug("Searching for any open quiz session.");
+    List<QuizzSession> openSessions = quizzSessionRepository.findByStatus(QuizzSession.SessionStatus.OPEN);
+    if (openSessions.isEmpty()) {
+        logger.debug("No OPEN quiz sessions found in the system.");
+        return Optional.empty();
+    }
+    // Return the first open session found.
+    // Business logic might later dictate which one if multiple are open (e.g., newest, etc.)
+    // For now, any open session is considered joinable.
+    QuizzSession sessionToJoin = openSessions.get(0); 
+    logger.info("Found an OPEN quiz session ID: {}. Title: '{}'", sessionToJoin.getId(), sessionToJoin.getQuizz().getTitle());
+    return Optional.of(sessionToJoin);
   }
 }

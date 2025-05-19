@@ -22,6 +22,13 @@
             <p class="text-sm text-base-content/70">Username (principal name): <span th:text="${username}"></span></p>
             <p class="text-sm text-base-content/70 mb-4">Roles: <span th:text="${roles}"></span></p>
 
+            <!-- Display link to open quiz if available -->
+            <div th:if="${hasOpenQuizSession}" class="mt-8 p-6 bg-success-content text-success rounded-box shadow-md">
+                <h2 class="text-2xl mb-2">Active Quiz Available!</h2>
+                <p class="mb-4" th:text="'Quizz: ' + ${openQuizSessionTitle} + ' is now open.'">An exciting quiz is waiting for you!</p>
+                <a th:href="@{/quiz/attempt/start/{sessionId}(sessionId=${openQuizSessionId})}" class="btn btn-primary btn-lg">Start Quiz</a>
+            </div>
+
             <!-- Placeholder for student-specific content -->
             <div class="mt-8 p-6 bg-neutral-content text-neutral rounded-box shadow-md">
                 <h2 class="text-2xl mb-2">Student Dashboard</h2>

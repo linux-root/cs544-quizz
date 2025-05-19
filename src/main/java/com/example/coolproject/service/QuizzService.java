@@ -10,6 +10,7 @@ import com.example.coolproject.repository.QuizzSessionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,8 @@ public class QuizzService {
   private final QuestionRepository questionRepository;
   private final QuizzSessionRepository quizzSessionRepository;
   private final AIService aiService;
+
+  private volatile boolean schedulerActive = false;
 
   @Autowired
   public QuizzService(
@@ -229,6 +232,8 @@ public class QuizzService {
     quizz.setSession(sessionEntity);
 
     quizzRepository.save(quizz);
+    this.schedulerActive = true;
+    logger.info("Quiz scheduler activated due to new session scheduling.");
     return sessionEntity;
   }
 
@@ -279,5 +284,44 @@ public class QuizzService {
           logger.error("Session not found with ID: {}", sessionId);
           return new IllegalArgumentException("Session not found with ID: " + sessionId);
         });
+  }
+
+  @Scheduled(fixedRateString = "${quiz.scheduler.fixedRate:1000}")
+  public void checkAndOpenScheduledQuizzSessions() {
+      if (!this.schedulerActive) {
+          return;
+      }
+
+      List<QuizzSession> sessionsToOpen = quizzSessionRepository.findByStatusAndScheduledStartTimeLessThanEqual(
+              QuizzSession.SessionStatus.SCHEDULED,
+              LocalDateTime.now()
+      );
+
+      if (sessionsToOpen.isEmpty()) {
+          logger.info("Scheduler: No scheduled sessions are due to be opened at this time.");
+          return;
+      }
+
+      logger.info("Scheduler: Found {} session(s) to open.", sessionsToOpen.size());
+      boolean sessionOpenedThisCycle = false;
+      for (QuizzSession session : sessionsToOpen) {
+          try {
+              session.setStatus(QuizzSession.SessionStatus.OPEN);
+              session.setActualStartTime(LocalDateTime.now()); 
+              quizzSessionRepository.save(session);
+              
+              logger.info("Scheduler: Opened session ID: {}. New status: OPEN.", session.getId());
+              sessionOpenedThisCycle = true;
+          } catch (Exception e) {
+              logger.error("Scheduler: Error opening session ID: {}", session.getId(), e);
+          }
+      }
+
+      if (sessionOpenedThisCycle) {
+          logger.info("Scheduler: One or more sessions were opened. Deactivating scheduler switch.");
+          this.schedulerActive = false;
+      } else {
+           logger.info("Scheduler: No sessions were actually opened in this cycle. Switch remains active: {}", this.schedulerActive);
+      }
   }
 }

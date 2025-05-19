@@ -342,4 +342,38 @@ public class QuizzService {
            logger.info("Scheduler: No sessions were actually opened in this cycle. Switch remains active: {}", this.schedulerActive);
       }
   }
+
+  @Transactional
+  public QuizzSession stopQuizzSession(Long sessionId) {
+    logger.info("Attempting to stop quizz session with ID: {}", sessionId);
+    QuizzSession session = quizzSessionRepository.findById(sessionId)
+        .orElseThrow(() -> {
+            logger.error("Cannot stop session: QuizzSession not found with ID: {}", sessionId);
+            return new IllegalArgumentException("QuizzSession not found with ID: " + sessionId);
+        });
+
+    if (session.getStatus() != QuizzSession.SessionStatus.OPEN) {
+        logger.warn("Cannot stop session ID: {}. It is not in OPEN status. Current status: {}", sessionId, session.getStatus());
+        // Optionally, throw an exception or return the session as is, depending on desired behavior
+        // For now, just returning the session without changes if not OPEN
+        return session; 
+    }
+
+    session.setStatus(QuizzSession.SessionStatus.CLOSED);
+    session.setEndTime(LocalDateTime.now());
+    QuizzSession savedSession = quizzSessionRepository.save(session);
+    logger.info("Successfully stopped quizz session ID: {}. New status: {}, End time: {}", 
+                savedSession.getId(), savedSession.getStatus(), savedSession.getEndTime());
+    
+    // Optionally, send a WebSocket message if other clients need to be notified about session closure
+    // String topic = "/topic/quizStatusUpdates";
+    // java.util.Map<String, Object> messagePayload = new java.util.HashMap<>();
+    // messagePayload.put("action", "sessionClosed");
+    // messagePayload.put("sessionId", savedSession.getId());
+    // messagePayload.put("newStatus", savedSession.getStatus().name());
+    // messagingTemplate.convertAndSend(topic, messagePayload);
+    // logger.info("Sent WebSocket message to {}: sessionClosed for session ID {}", topic, savedSession.getId());
+
+    return savedSession;
+  }
 }

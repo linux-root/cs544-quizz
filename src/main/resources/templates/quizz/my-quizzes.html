@@ -63,7 +63,12 @@
                                             <span class="quiz-countdown" th:if="${quizz.session.scheduledStartTime != null}"
                                                   th:attr="data-scheduled-time=${quizz.session.scheduledStartTime.toString()}">(Loading countdown...)</span>
                                         </span>
-                                        <span th:case="'OPEN'"      class="badge badge-success">Status: Open</span>
+                                        <span th:case="'OPEN'" class="badge badge-success">
+                                            Status: Open
+                                            <form th:action="@{/quizz/stop-session/{sessionId}(sessionId=${quizz.session.id})}" method="post" class="inline ml-2">
+                                                <button type="submit" class="btn btn-xs btn-error">Stop Session</button>
+                                            </form>
+                                        </span>
                                         <span th:case="'CLOSED'"    class="badge badge-neutral">Status: Closed</span>
                                         <span th:case="*"           class="badge badge-ghost" th:text="'Status: ' + ${quizz.session.status.name()}">Unknown Status</span>
                                     </th:block>

@@ -17,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import jakarta.servlet.http.HttpSession;
 import java.util.ArrayList;
@@ -151,25 +152,6 @@ public class QuizzController {
     }
   }
 
-  @PostMapping("/start-session/{quizzId}")
-  @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
-  public String startQuizzSessionNow(@PathVariable Long quizzId,
-      Model model, Authentication authentication) {
-    logger.info("Start session request received for quizz ID: {} by professor {}", quizzId, authentication.getName());
-    String email = authentication.getName();
-
-    Quizz quizz = quizzService.getQuizzById(quizzId);
-    if (quizz.getSession() != null && quizz.getSession().getStatus() == QuizzSession.SessionStatus.OPEN) {
-      logger.warn("Quizz {} already has an active session. Requested by professor {}", quizzId, email);
-      model.addAttribute("error", "This quizz already has an active session");
-      return "quizz/my-quizzes";
-    }
-
-    QuizzSession session = quizzService.startQuizzSession(quizzId);
-    model.addAttribute("quizzSessionInfo", session);
-    return "quizz/session-started";
-  }
-
   @PostMapping("/schedule-session/{quizzId}")
   @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
   public String scheduleQuizzSession(@PathVariable Long quizzId,
@@ -208,5 +190,34 @@ public class QuizzController {
 
     model.addAttribute("quizzes", quizzes);
     return "quizz/my-quizzes";
+  }
+
+  @PostMapping("/start-session/{id}")
+  @PreAuthorize("hasRole('PROFESSOR')")
+  public String startQuizzSession(@PathVariable("id") Long quizzId, RedirectAttributes redirectAttributes) {
+    try {
+      quizzService.startQuizzSession(quizzId);
+      redirectAttributes.addFlashAttribute("successMessage", "Quizz session started successfully!");
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      redirectAttributes.addFlashAttribute("errorMessage", "Error starting session: " + e.getMessage());
+    }
+    return "redirect:/quizz/my-quizzes";
+  }
+
+  @PostMapping("/stop-session/{sessionId}")
+  @PreAuthorize("hasRole('PROFESSOR')") // Or other appropriate authorization
+  public String stopQuizzSession(@PathVariable("sessionId") Long sessionId, RedirectAttributes redirectAttributes) {
+    try {
+      QuizzSession stoppedSession = quizzService.stopQuizzSession(sessionId);
+      if (stoppedSession.getStatus() == QuizzSession.SessionStatus.CLOSED) {
+        redirectAttributes.addFlashAttribute("successMessage", "Quizz session " + sessionId + " stopped successfully!");
+      } else {
+        // This case might occur if the session wasn't OPEN when stop was called
+        redirectAttributes.addFlashAttribute("infoMessage", "Quizz session " + sessionId + " was not stopped. Status: " + stoppedSession.getStatus());
+      }
+    } catch (IllegalArgumentException e) {
+      redirectAttributes.addFlashAttribute("errorMessage", "Error stopping session: " + e.getMessage());
+    }
+    return "redirect:/quizz/my-quizzes";
   }
 }

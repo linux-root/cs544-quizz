@@ -93,15 +93,16 @@ public class QuizzService {
    * Create a new quiz with pre-defined questions
    */
   @Transactional
-  public Quizz createQuizzWithQuestions(String title, Professor professor, List<Question> questions) {
-    logger.info("Creating quizz with provided questions, title: {} for professor: {}", title,
-        professor.getEmail());
+  public Quizz createQuizzWithQuestions(String title, Professor professor, List<Question> questions, Integer durationMinutes) {
+    logger.info("Creating quizz with provided questions, title: {} for professor: {}, duration: {} minutes", title,
+        professor.getEmail(), durationMinutes);
 
     Quizz quizz = new Quizz();
     quizz.setTitle(title);
     quizz.setCreator(professor);
+    quizz.setDurationMinutes(durationMinutes);
 
-    logger.debug("Saving initial quizz");
+    logger.debug("Saving initial quizz with duration");
     Quizz savedQuizz = quizzRepository.save(quizz);
     logger.info("Initial quizz saved with ID: {}", savedQuizz.getId());
 

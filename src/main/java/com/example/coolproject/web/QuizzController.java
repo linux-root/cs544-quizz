@@ -70,9 +70,10 @@ public class QuizzController {
   @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
   public String generateQuizz(@RequestParam String title,
       @RequestParam String prompt,
+      @RequestParam Integer durationMinutes,
       Model model,
       HttpSession session, Authentication authentication, RedirectAttributes redirectAttributes) {
-    logger.info("Generate quizz request received with title: '{}', prompt: '{}'", title, prompt);
+    logger.info("Generate quizz request received with title: '{}', prompt: '{}', duration: {} minutes", title, prompt, durationMinutes);
     Optional<Professor> professorOpt = getCurrentProfessor(authentication);
     if (!professorOpt.isPresent()) {
         redirectAttributes.addFlashAttribute("errorMessage", "Professor profile not found.");
@@ -91,6 +92,7 @@ public class QuizzController {
       session.setAttribute("tempQuestions", questions);
       session.setAttribute("quizzTitle", title);
       session.setAttribute("quizzPrompt", prompt);
+      session.setAttribute("quizzDurationMinutes", durationMinutes);
 
       model.addAttribute("questions", questions);
       model.addAttribute("title", title);
@@ -157,6 +159,16 @@ public class QuizzController {
       logger.error("No quizz title found in session for professor {}", professor.getEmail());
       return "redirect:/quizz/create?error=session";
     }
+    // Retrieve duration from session
+    Integer durationMinutes = (Integer) httpSession.getAttribute("quizzDurationMinutes");
+    if (durationMinutes == null) {
+        logger.warn("No quizz duration found in session for professor {}, defaulting or error handling might be needed.", professor.getEmail());
+        // Decide on default behavior: error out, or use a default value. For now, let's assume it must be present or was defaulted in the form.
+        // If defaulting here: durationMinutes = 15; // Example default
+        // If erroring out because it should have been set by the generate step:
+        redirectAttributes.addFlashAttribute("errorMessage", "Quiz duration was not set. Please try creating the quiz again.");
+        return "redirect:/quizz/create?error=session_duration_missing";
+    }
 
     try {
       List<Question> questions = new ArrayList<>();
@@ -168,12 +180,13 @@ public class QuizzController {
         questions.add(question);
       }
 
-      Quizz quizz = quizzService.createQuizzWithQuestions(title, professor, questions);
-      logger.info("Quizz created with ID: {} by professor {}", quizz.getId(), professor.getEmail());
+      Quizz quizz = quizzService.createQuizzWithQuestions(title, professor, questions, durationMinutes);
+      logger.info("Quizz created with ID: {} by professor {} with duration {} minutes", quizz.getId(), professor.getEmail(), durationMinutes);
 
       httpSession.removeAttribute("tempQuestions");
       httpSession.removeAttribute("quizzTitle");
       httpSession.removeAttribute("quizzPrompt");
+      httpSession.removeAttribute("quizzDurationMinutes"); // Remove duration from session
 
       model.addAttribute("quizz", quizz);
       return "quizz/session-options";

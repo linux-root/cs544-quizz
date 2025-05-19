@@ -24,6 +24,7 @@ public class Quizz {
   private Professor creator;
 
   private LocalDateTime createdAt;
+  private Integer durationMinutes;
 
   @PrePersist
   public void prePersist() {
@@ -70,6 +71,14 @@ public class Quizz {
 
   public LocalDateTime getCreatedAt() {
     return createdAt;
+  }
+
+  public Integer getDurationMinutes() {
+    return durationMinutes;
+  }
+
+  public void setDurationMinutes(Integer durationMinutes) {
+    this.durationMinutes = durationMinutes;
   }
 
   public QuizzSession getSession() {

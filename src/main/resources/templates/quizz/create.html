@@ -45,6 +45,14 @@
                                   class="textarea textarea-bordered h-32" 
                                   placeholder="Detailed prompt for AI. E.g., 'Generate questions about core Java Object-Oriented Programming concepts like encapsulation, inheritance, and polymorphism, suitable for intermediate developers.'" required></textarea>
                     </div>
+                    <div class="form-control mt-4">
+                        <label class="label" for="durationMinutes">
+                            <span class="label-text">Quiz Duration (minutes)</span>
+                        </label>
+                        <input type="number" id="durationMinutes" name="durationMinutes"
+                               class="input input-bordered"
+                               value="15" min="1" required />
+                    </div>
                     <div class="form-control mt-6">
                         <button type="submit" class="btn btn-primary">Generate Questions</button>
                     </div>

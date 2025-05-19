@@ -14,6 +14,7 @@
     <div class="container mx-auto max-w-3xl">
         <div class="bg-base-100 p-6 md:p-8 rounded-box shadow-xl">
             <h1 class="text-3xl md:text-4xl font-bold mb-6 text-center text-primary" th:text="${quizzTitle}">Quiz Title</h1>
+            <div id="quiz-timer" class="text-2xl font-bold text-center mb-4 text-secondary"></div>
 
             <!-- Assuming quiz is available if this page is reached -->
             <p class="mb-2 text-sm text-base-content/70">Session ID: <span th:text="${quizzSessionId}"></span></p>
@@ -79,6 +80,41 @@
                 }
             });
         });
+
+        // Countdown Timer Logic
+        const timerDisplay = document.getElementById('quiz-timer');
+        const durationMinutes = parseInt("[[${durationMinutes}]]", 10);
+
+        if (timerDisplay && !isNaN(durationMinutes) && durationMinutes > 0) {
+            let timeLeftInSeconds = durationMinutes * 60;
+
+            const timerInterval = setInterval(function() {
+                const minutes = Math.floor(timeLeftInSeconds / 60);
+                let seconds = timeLeftInSeconds % 60;
+
+                seconds = seconds < 10 ? '0' + seconds : seconds;
+
+                timerDisplay.textContent = `Time Left: ${minutes}:${seconds}`;
+
+                if (timeLeftInSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    timerDisplay.textContent = "Time's Up!";
+                    timerDisplay.classList.remove('text-secondary');
+                    timerDisplay.classList.add('text-error');
+                    // Optionally, disable the submit button or auto-submit the form
+                    // document.getElementById('quizAttemptForm').submit(); // Example auto-submit
+                    // document.querySelector('button[type="submit"]').disabled = true; // Example disable submit
+                } else if (timeLeftInSeconds <= 60 && !timerDisplay.classList.contains('text-warning')) {
+                    // Change to warning color if less than 1 minute left
+                    timerDisplay.classList.remove('text-secondary');
+                    timerDisplay.classList.add('text-warning');
+                }
+
+                timeLeftInSeconds--;
+            }, 1000);
+        } else if (timerDisplay) {
+            timerDisplay.textContent = "Timer not set or invalid duration.";
+        }
     });
     </script>
 </body>

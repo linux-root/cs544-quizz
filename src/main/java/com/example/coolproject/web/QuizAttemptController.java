@@ -73,6 +73,7 @@ public class QuizAttemptController {
         model.addAttribute("quizzSessionId", quizzSession.getId());
         model.addAttribute("quizzTitle", quizz.getTitle());
         model.addAttribute("questions", questions);
+        model.addAttribute("durationMinutes", quizz.getDurationMinutes());
 
         logger.info("Student {} viewing quiz session ID {} for quizz '{}'. {} questions loaded.", 
             studentEmail, sessionId, quizz.getTitle(), questions.size());

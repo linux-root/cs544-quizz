@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Controller
-@RequestMapping("/quiz") // Changed base request mapping for clarity
+@RequestMapping("/student") // Changed base request mapping for clarity
 public class QuizAttemptController {
 
     private static final Logger logger = LoggerFactory.getLogger(QuizAttemptController.class);
@@ -76,7 +76,7 @@ public class QuizAttemptController {
 
         logger.info("Student {} viewing quiz session ID {} for quizz '{}'. {} questions loaded.", 
             studentEmail, sessionId, quizz.getTitle(), questions.size());
-
-        return "quiz/take-quiz";
+ 
+        return "student/take-quizz";
     }
 } 

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professor Home</title>
+    <link rel="stylesheet" th:href="@{/css/output.css}"/>
+</head>
+<body class="bg-base-200 p-8">
+
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+
+    <div class="container mx-auto">
+        <div sec:authorize="isAuthenticated()" class="text-center"> <!-- Assuming professor is always authenticated to see this page -->
+            <h1 class="text-4xl font-bold mb-4">Welcome, <span th:text="${displayName}">Professor</span>!</h1>
+            <p class="text-lg mb-2">You are logged in.
+                <span class="badge badge-secondary">Professor</span>
+            </p>
+            <p class="text-sm text-base-content/70">Username (principal name): <span th:text="${username}"></span></p>
+            <p class="text-sm text-base-content/70 mb-4">Roles: <span th:text="${roles}"></span></p>
+
+            <div class="mt-8 p-6 bg-base-100 rounded-box shadow-md">
+                <h2 class="text-2xl mb-2">A DaisyUI Component Example</h2>
+                <button class="btn btn-accent">Accent Button</button>
+            </div>
+
+            <div class="mt-8 p-6 bg-info-content text-info rounded-box shadow-md">
+                <h2 class="text-2xl mb-2">Professor Dashboard</h2>
+                <p class="mb-4">Manage your quizzes and sessions.</p>
+                <div class="flex gap-4 justify-center">
+                    <a th:href="@{/quizz/create}" class="btn btn-primary">Create New Quizz</a>
+                    <a th:href="@{/quizz/my-quizzes}" class="btn btn-secondary">View My Quizzes</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:src="@{/js/theme-handler.js}"></script>
+</body>
+</html> 

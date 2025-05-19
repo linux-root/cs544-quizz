@@ -7,7 +7,6 @@ import com.example.coolproject.entity.QuizzSession;
 import com.example.coolproject.repository.QuestionRepository;
 import com.example.coolproject.repository.QuizzRepository;
 import com.example.coolproject.repository.QuizzSessionRepository;
-import com.example.coolproject.repository.StudentQuizAttemptRepository;
 import com.example.coolproject.repository.StudentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,14 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
-import java.util.Map;
 
-import com.example.coolproject.entity.Student;
-import com.example.coolproject.entity.StudentQuizAttempt;
-import com.example.coolproject.web.dto.StudentQuizDetailsDTO;
-import com.example.coolproject.web.dto.StudentAttemptDetailsDTO;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
@@ -36,7 +28,6 @@ public class QuizzService {
   private final QuizzRepository quizzRepository;
   private final QuestionRepository questionRepository;
   private final QuizzSessionRepository quizzSessionRepository;
-  private final StudentQuizAttemptRepository studentQuizAttemptRepository;
   private final StudentRepository studentRepository;
   private final AIService aiService;
   private final SimpMessagingTemplate messagingTemplate;
@@ -49,7 +40,6 @@ public class QuizzService {
       QuizzRepository quizzRepository,
       QuestionRepository questionRepository,
       QuizzSessionRepository quizzSessionRepository,
-      StudentQuizAttemptRepository studentQuizAttemptRepository,
       StudentRepository studentRepository,
       AIService aiService,
       SimpMessagingTemplate messagingTemplate,
@@ -57,7 +47,6 @@ public class QuizzService {
     this.quizzRepository = quizzRepository;
     this.questionRepository = questionRepository;
     this.quizzSessionRepository = quizzSessionRepository;
-    this.studentQuizAttemptRepository = studentQuizAttemptRepository;
     this.studentRepository = studentRepository;
     this.aiService = aiService;
     this.messagingTemplate = messagingTemplate;
@@ -407,194 +396,5 @@ public class QuizzService {
           professor.getId());
     }
     return hasOpenSession;
-  }
-
-  @Transactional(readOnly = true)
-  public StudentQuizDetailsDTO getActiveQuizDetailsForStudent(Student student) {
-    logger.info("Fetching active quiz details for student: {}", student.getEmail());
-    LocalDateTime now = LocalDateTime.now();
-
-    List<QuizzSession.SessionStatus> relevantStatuses = List.of(QuizzSession.SessionStatus.OPEN,
-        QuizzSession.SessionStatus.SCHEDULED);
-    List<QuizzSession> studentSessions = quizzSessionRepository.findByParticipantsContainsAndStatusIn(student,
-        relevantStatuses);
-
-    QuizzSession activeSession = null;
-
-    // Filter for OPEN sessions first
-    Optional<QuizzSession> openSessionOpt = studentSessions.stream()
-        .filter(qs -> qs.getStatus() == QuizzSession.SessionStatus.OPEN)
-        .filter(qs -> qs.getEndTime() == null || qs.getEndTime().isAfter(now)) // Ensure not ended
-        // Assuming only one relevant OPEN session due to professor constraint
-        .findFirst();
-
-    if (openSessionOpt.isPresent()) {
-      activeSession = openSessionOpt.get();
-    } else {
-      // If no OPEN session, check for SCHEDULED sessions that are effectively open or
-      // upcoming
-      Optional<QuizzSession> scheduledSessionOpt = studentSessions.stream()
-          .filter(qs -> qs.getStatus() == QuizzSession.SessionStatus.SCHEDULED)
-          .filter(qs -> qs.getEndTime() == null || qs.getEndTime().isAfter(now)) // Ensure not ended
-          // Sort by scheduledStartTime to pick the earliest if multiple somehow exist
-          // (though shouldn't)
-          .sorted((s1, s2) -> s1.getScheduledStartTime().compareTo(s2.getScheduledStartTime()))
-          .findFirst();
-
-      if (scheduledSessionOpt.isPresent()) {
-        activeSession = scheduledSessionOpt.get();
-      }
-    }
-
-    if (activeSession == null) {
-      logger.info("No active or scheduled quiz session found for student: {}", student.getEmail());
-      return null; // Or throw specific exception / return empty DTO
-    }
-
-    Quizz quizz = activeSession.getQuizz();
-    Optional<StudentQuizAttempt> attemptOpt = studentQuizAttemptRepository
-        .findByStudentAndQuizzAndStatus(student, quizz, StudentQuizAttempt.AttemptStatus.IN_PROGRESS);
-
-    boolean isEffectivelyOpen = activeSession.getStatus() == QuizzSession.SessionStatus.OPEN ||
-        (activeSession.getStatus() == QuizzSession.SessionStatus.SCHEDULED &&
-            activeSession.getScheduledStartTime() != null &&
-            !activeSession.getScheduledStartTime().isAfter(now));
-
-    return new StudentQuizDetailsDTO(
-        quizz.getId(),
-        quizz.getTitle(),
-        activeSession.getStatus(),
-        activeSession.getScheduledStartTime(),
-        isEffectivelyOpen, // True if student can start now
-        attemptOpt.isPresent(),
-        attemptOpt.map(StudentQuizAttempt::getId).orElse(null));
-  }
-
-  @Transactional
-  public StudentAttemptDetailsDTO commenceQuizAttempt(Long quizzId, Student student) {
-    logger.info("Student {} commencing quiz attempt for quizzId: {}", student.getEmail(), quizzId);
-    Quizz quizz = quizzRepository.findById(quizzId)
-        .orElseThrow(() -> new IllegalArgumentException("Quizz not found with ID: " + quizzId));
-
-    // Find the relevant QuizzSession. This logic assumes one active session per
-    // quiz.
-    QuizzSession session = quizz.getSession(); // Assumes Quizz entity has direct link to its session
-    if (session == null) {
-      throw new IllegalStateException("No session found for quiz ID: " + quizzId);
-    }
-
-    // Validate session is startable for student
-    boolean canStart = false;
-    LocalDateTime now = LocalDateTime.now();
-    if (session.getStatus() == QuizzSession.SessionStatus.OPEN
-        && (session.getEndTime() == null || session.getEndTime().isAfter(now))) {
-      canStart = true;
-    } else if (session.getStatus() == QuizzSession.SessionStatus.SCHEDULED &&
-        session.getScheduledStartTime() != null &&
-        !session.getScheduledStartTime().isAfter(now) &&
-        (session.getEndTime() == null || session.getEndTime().isAfter(now))) {
-      canStart = true;
-    }
-
-    if (!canStart) {
-      throw new IllegalStateException("Quiz session is not currently available for starting.");
-    }
-    if (!session.getParticipants().contains(student)) {
-      throw new IllegalStateException("Student is not a participant in this quiz session.");
-    }
-
-    Optional<StudentQuizAttempt> existingAttemptOpt = studentQuizAttemptRepository
-        .findByStudentAndQuizzAndStatus(student, quizz, StudentQuizAttempt.AttemptStatus.IN_PROGRESS);
-
-    StudentQuizAttempt attempt;
-    if (existingAttemptOpt.isPresent()) {
-      logger.info("Resuming existing IN_PROGRESS attempt ID: {} for student: {}", existingAttemptOpt.get().getId(),
-          student.getEmail());
-      attempt = existingAttemptOpt.get();
-    } else {
-      logger.info("Creating new quiz attempt for student: {} and quiz ID: {}", student.getEmail(), quizzId);
-      attempt = new StudentQuizAttempt(student, quizz, LocalDateTime.now(),
-          StudentQuizAttempt.AttemptStatus.IN_PROGRESS, "{}");
-      studentQuizAttemptRepository.save(attempt);
-      logger.info("New attempt created with ID: {}", attempt.getId());
-
-      if (session.getActualStartTime() == null) {
-        session.setActualStartTime(LocalDateTime.now());
-        // If status was SCHEDULED and now it's started, change to OPEN
-        if (session.getStatus() == QuizzSession.SessionStatus.SCHEDULED) {
-          session.setStatus(QuizzSession.SessionStatus.OPEN);
-        }
-        quizzSessionRepository.save(session);
-        logger.info("Session ID: {} actualStartTime updated and status set to OPEN.", session.getId());
-      }
-    }
-    // Eagerly fetch questions if lazy loaded, or ensure DTO handles this
-    List<Question> questions = quizz.getQuestions(); // Assumes questions are fetched or DTO will handle it
-
-    return new StudentAttemptDetailsDTO(
-        attempt.getId(),
-        quizz.getId(),
-        quizz.getTitle(),
-        questions, // This needs to be a List<QuestionDTO> probably
-        attempt.getAnswersJson(),
-        attempt.getStatus());
-  }
-
-  @Transactional
-  public void saveStudentAnswer(Long attemptId, Long questionId, String markdownAnswer, Student currentUser) {
-    logger.info("Student {} saving answer for attemptId: {}, questionId: {}", currentUser.getEmail(), attemptId,
-        questionId);
-    StudentQuizAttempt attempt = studentQuizAttemptRepository.findById(attemptId)
-        .orElseThrow(() -> new IllegalArgumentException("Attempt not found with ID: " + attemptId));
-
-    if (!attempt.getStudent().getId().equals(currentUser.getId())) {
-      throw new SecurityException("Student does not own this attempt.");
-    }
-    if (attempt.getStatus() != StudentQuizAttempt.AttemptStatus.IN_PROGRESS) {
-      throw new IllegalStateException("Quiz attempt is not in progress.");
-    }
-    // Validate questionId belongs to the quiz of this attempt
-    boolean isValidQuestion = attempt.getQuizz().getQuestions().stream().anyMatch(q -> q.getId().equals(questionId));
-    if (!isValidQuestion) {
-      throw new IllegalArgumentException("Question ID " + questionId + " not found in quiz for attempt " + attemptId);
-    }
-
-    try {
-      Map<String, String> answers = objectMapper.readValue(attempt.getAnswersJson(),
-          new TypeReference<Map<String, String>>() {
-          });
-      answers.put(String.valueOf(questionId), markdownAnswer);
-      attempt.setAnswersJson(objectMapper.writeValueAsString(answers));
-      attempt.setLastSavedTime(LocalDateTime.now());
-      studentQuizAttemptRepository.save(attempt);
-      logger.info("Answer saved for attemptId: {}, questionId: {}", attemptId, questionId);
-    } catch (Exception e) {
-      logger.error("Error processing answers JSON for attempt ID: " + attemptId, e);
-      throw new RuntimeException("Error saving answer due to JSON processing.", e);
-    }
-  }
-
-  @Transactional(readOnly = true)
-  public StudentAttemptDetailsDTO getStudentQuizAttemptDetails(Long attemptId, Student currentUser) {
-    logger.info("Fetching details for attempt ID: {} by student {}", attemptId, currentUser.getEmail());
-    StudentQuizAttempt attempt = studentQuizAttemptRepository.findById(attemptId)
-        .orElseThrow(() -> new IllegalArgumentException("Attempt not found with ID: " + attemptId));
-
-    if (!attempt.getStudent().getId().equals(currentUser.getId())) {
-      throw new SecurityException("Student does not own this attempt.");
-    }
-
-    Quizz quizz = attempt.getQuizz();
-    // Ensure questions are loaded. If lazy, this access will trigger load within
-    // transaction.
-    List<Question> questions = quizz.getQuestions();
-
-    return new StudentAttemptDetailsDTO(
-        attempt.getId(),
-        quizz.getId(),
-        quizz.getTitle(),
-        questions, // Again, should be QuestionDTOs
-        attempt.getAnswersJson(),
-        attempt.getStatus());
   }
 }

@@ -58,7 +58,11 @@
                                 <div th:if="${quizz.session != null}">
                                     <th:block th:switch="${quizz.session.status.name()}">
                                         <span th:case="'CREATED'"   class="badge badge-warning">Status: Created</span>
-                                        <span th:case="'SCHEDULED'" class="badge badge-info">Status: Scheduled</span>
+                                        <span th:case="'SCHEDULED'" class="badge badge-info">
+                                            Status: Scheduled 
+                                            <span class="quiz-countdown" th:if="${quizz.session.scheduledStartTime != null}"
+                                                  th:attr="data-scheduled-time=${quizz.session.scheduledStartTime.toString()}">(Loading countdown...)</span>
+                                        </span>
                                         <span th:case="'OPEN'"      class="badge badge-success">Status: Open</span>
                                         <span th:case="'CLOSED'"    class="badge badge-neutral">Status: Closed</span>
                                         <span th:case="*"           class="badge badge-ghost" th:text="'Status: ' + ${quizz.session.status.name()}">Unknown Status</span>
@@ -90,21 +94,47 @@
                     var payload = JSON.parse(message.body);
                     if (payload.action === 'sessionOpened') {
                         console.log('Session opened event received for session ID: ' + payload.sessionId + ". Reloading page.");
-                        // You might want to add a small delay or a notification before reloading
-                        // For example, show a toast message: "A quiz session has been updated, reloading..."
-                        // alert("A quiz session has been updated. The page will now reload.");
                         window.location.reload();
                     }
                 });
             }, function(error) {
                 console.error('STOMP error: ' + error);
-                // You could try to reconnect here after a delay
             });
 
-            // Optional: Handle SockJS errors or close events if needed
             socket.onclose = function() {
                 console.log('SockJS connection closed.');
             };
+
+            // Countdown timer logic (new)
+            function updateAllCountdowns() {
+                const countdownElements = document.querySelectorAll('.quiz-countdown');
+                countdownElements.forEach(function(element) {
+                    const scheduledTimeISO = element.getAttribute('data-scheduled-time');
+                    if (!scheduledTimeISO) {
+                        element.textContent = "(No scheduled time)";
+                        return;
+                    }
+
+                    const scheduledTime = new Date(scheduledTimeISO);
+                    const now = new Date();
+                    const timeLeft = scheduledTime - now;
+
+                    if (timeLeft <= 0) {
+                        element.textContent = '(Starting soon...)';
+                    } else {
+                        const minutes = Math.floor((timeLeft / 1000 / 60) % 60);
+                        const seconds = Math.floor((timeLeft / 1000) % 60);
+                        element.textContent = '(Starts in ' + 
+                                              String(minutes).padStart(2, '0') + ':' + 
+                                              String(seconds).padStart(2, '0') + ')';
+                    }
+                });
+            }
+
+            if (document.querySelectorAll('.quiz-countdown').length > 0) {
+                updateAllCountdowns(); // Initial call to display countdowns immediately
+                setInterval(updateAllCountdowns, 1000); // Update every second
+            }
         });
     </script>
 </body>

@@ -105,9 +105,9 @@ public class SecurityConfig {
                 student.setEmail(principalNameForDbEmailField);
                 student.setName(displayNameFromGitHub);
                 student.setAvatarUrl(avatarUrl);
+                student.addRole("ROLE_STUDENT");
             } else {
                 Set<String> roles = new HashSet<>();
-                roles.add("ROLE_STUDENT");
                 student = new Student(principalNameForDbEmailField, displayNameFromGitHub, githubId, avatarUrl, roles);
             }
             studentRepository.save(student);

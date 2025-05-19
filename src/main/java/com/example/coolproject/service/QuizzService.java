@@ -312,8 +312,6 @@ public class QuizzService {
 
   @Scheduled(fixedRateString = "${quiz.scheduler.fixedRate:1000}")
   public void checkAndOpenScheduledQuizzSessions() {
-    logger.info("Scheduler: Checking for due quiz sessions. Switch active: {}", this.schedulerActive);
-
     if (!this.schedulerActive) {
       return;
     }
@@ -323,7 +321,6 @@ public class QuizzService {
         LocalDateTime.now());
 
     if (sessionsToOpen.isEmpty()) {
-      logger.info("Scheduler: No scheduled sessions are due to be opened at this time.");
       return;
     }
 

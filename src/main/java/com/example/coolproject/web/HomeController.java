@@ -29,60 +29,66 @@ public class HomeController {
     }
 
     @GetMapping("/home")
-    public String home(Model model, Authentication authentication) { // OAuth2User principal can be inferred if needed
-        if (authentication != null && authentication.isAuthenticated()) {
-            String email = authentication.getName(); // For both OAuth2 and form login, email is the name
-            Optional<User> userOptional = userRepository.findByEmail(email);
+    public String home(Model model, Authentication authentication) {
+        // Spring Security ensures this path is only reached by authenticated users.
+        // If authentication is null or not authenticated here, it's an unexpected state
+        // or a direct call bypassing normal web flow, which Spring Security should prevent.
+        if (authentication == null || !authentication.isAuthenticated()) {
+            // This case should ideally not be reached due to Spring Security config.
+            // Redirecting to login or showing an error might be appropriate.
+            // For now, let's log an error and redirect to login as a safeguard.
+            // System.err.println("Error: /home accessed without authentication despite SecurityConfig.");
+            return "redirect:/login"; 
+        }
 
-            User userToDisplay;
-            boolean isProfessor;
-            String displayName;
-            String rolesString;
-            String avatarUrl = null;
+        String email = authentication.getName();
+        Optional<User> userOptional = userRepository.findByEmail(email);
 
-            if (userOptional.isPresent()) {
-                User user = userOptional.get();
-                userToDisplay = user;
-                displayName = user.getName();
-                rolesString = user.getRoles().stream().collect(Collectors.joining(", "));
-                isProfessor = user.getRoles().contains("ROLE_PROFESSOR");
-                if (user instanceof Student) {
-                    Student student = (Student) user;
-                    avatarUrl = student.getAvatarUrl();
-                }
-            } else {
-                // User authenticated but not found in DB (should ideally not happen)
-                // Fallback to basic auth info for model, but primarily for role check
-                userToDisplay = null; // No full User entity available
-                displayName = email;
-                rolesString = authentication.getAuthorities().stream()
-                                     .map(GrantedAuthority::getAuthority)
-                                     .collect(Collectors.joining(", "));
-                isProfessor = authentication.getAuthorities().stream()
-                    .anyMatch(ga -> ga.getAuthority().equals("ROLE_PROFESSOR"));
-            }
+        // boolean isProfessor; // Declared below
+        String displayName;
+        String rolesString;
+        String avatarUrl = null;
+        boolean isProfessor;
 
-            model.addAttribute("username", email); // email is the consistent username/principal name
-            model.addAttribute("displayName", displayName);
-            model.addAttribute("roles", rolesString);
-            model.addAttribute("isProfessor", isProfessor); // Kept for consistency if any fragment still uses it
-            if (avatarUrl != null) {
-                 model.addAttribute("avatarUrl", avatarUrl);
-            } else {
-                 model.addAttribute("avatarUrl", null); // Ensure attribute exists
-            }
-
-            if (isProfessor) {
-                return "professor-home";
-            } else {
-                // Assuming any other authenticated user is a student for now
-                // or a generic authenticated user if not strictly student/professor roles are enforced elsewhere.
-                // Based on README, primary roles are Professor and Student.
-                return "student-home";
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            displayName = user.getName();
+            rolesString = user.getRoles().stream().collect(Collectors.joining(", "));
+            isProfessor = user.getRoles().contains("ROLE_PROFESSOR");
+            if (user instanceof Student) {
+                Student student = (Student) user;
+                avatarUrl = student.getAvatarUrl();
             }
         } else {
-            // Not authenticated
-            return "home"; // This will render the unauthenticated version of home.html
+            // User authenticated (e.g., via OAuth2 initially) but not yet in DB or lookup failed.
+            // This case was handled before, relying on authentication object for roles.
+            // This is a critical state if user is authenticated but not found.
+            // For now, rely on authorities from Authentication object if user not in DB.
+            displayName = email; // Fallback display name
+            rolesString = authentication.getAuthorities().stream()
+                                 .map(GrantedAuthority::getAuthority)
+                                 .collect(Collectors.joining(", "));
+            isProfessor = authentication.getAuthorities().stream()
+                .anyMatch(ga -> ga.getAuthority().equals("ROLE_PROFESSOR"));
+            // Log this situation, as it's unusual post-login
+            System.err.println("Authenticated user " + email + " not found in database. Roles derived from security context.");
+        }
+
+        model.addAttribute("username", email);
+        model.addAttribute("displayName", displayName);
+        model.addAttribute("roles", rolesString);
+        // model.addAttribute("isProfessor", isProfessor); // isProfessor variable used directly for routing
+        if (avatarUrl != null) {
+             model.addAttribute("avatarUrl", avatarUrl);
+        } else {
+             model.addAttribute("avatarUrl", null);
+        }
+
+        if (isProfessor) {
+            return "professor-home";
+        } else {
+            // All other authenticated users go to student home page.
+            return "student-home";
         }
     }
 

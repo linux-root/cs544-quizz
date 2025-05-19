@@ -10,6 +10,7 @@ import com.example.coolproject.repository.QuizzSessionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ public class QuizzService {
   private final QuestionRepository questionRepository;
   private final QuizzSessionRepository quizzSessionRepository;
   private final AIService aiService;
+  private final SimpMessagingTemplate messagingTemplate;
 
   private volatile boolean schedulerActive = false;
 
@@ -33,11 +35,13 @@ public class QuizzService {
       QuizzRepository quizzRepository,
       QuestionRepository questionRepository,
       QuizzSessionRepository quizzSessionRepository,
-      AIService aiService) {
+      AIService aiService,
+      SimpMessagingTemplate messagingTemplate) {
     this.quizzRepository = quizzRepository;
     this.questionRepository = questionRepository;
     this.quizzSessionRepository = quizzSessionRepository;
     this.aiService = aiService;
+    this.messagingTemplate = messagingTemplate;
   }
 
   /**
@@ -288,7 +292,10 @@ public class QuizzService {
 
   @Scheduled(fixedRateString = "${quiz.scheduler.fixedRate:1000}")
   public void checkAndOpenScheduledQuizzSessions() {
+      logger.info("Scheduler: Checking for due quiz sessions. Switch active: {}", this.schedulerActive);
+
       if (!this.schedulerActive) {
+          logger.info("Scheduler: Switch is inactive, skipping check.");
           return;
       }
 
@@ -312,8 +319,19 @@ public class QuizzService {
               
               logger.info("Scheduler: Opened session ID: {}. New status: OPEN.", session.getId());
               sessionOpenedThisCycle = true;
+
+              // Send WebSocket message
+              String topic = "/topic/quizStatusUpdates";
+              java.util.Map<String, Object> messagePayload = new java.util.HashMap<>();
+              messagePayload.put("action", "sessionOpened");
+              messagePayload.put("sessionId", session.getId());
+              messagePayload.put("newStatus", session.getStatus().name());
+              messagePayload.put("message", "Quizz session " + session.getId() + " is now OPEN. Please reload.");
+              messagingTemplate.convertAndSend(topic, messagePayload);
+              logger.info("Sent WebSocket message to {}: {}", topic, messagePayload);
+
           } catch (Exception e) {
-              logger.error("Scheduler: Error opening session ID: {}", session.getId(), e);
+              logger.error("Scheduler: Error opening session ID: {} or sending WebSocket message", session.getId(), e);
           }
       }
 

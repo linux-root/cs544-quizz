@@ -73,5 +73,39 @@
         </div>
     </div>
     <script th:src="@{/js/theme-handler.js}"></script>
+
+    <!-- WebSocket/STOMP Client-side logic -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log("Attempting to connect to WebSocket for quiz status updates...");
+            var socket = new SockJS('/ws'); 
+            var stompClient = Stomp.over(socket);
+
+            stompClient.connect({}, function (frame) {
+                console.log('Connected to WebSocket: ' + frame);
+                stompClient.subscribe('/topic/quizStatusUpdates', function (message) {
+                    console.log('Received message: ' + message.body);
+                    var payload = JSON.parse(message.body);
+                    if (payload.action === 'sessionOpened') {
+                        console.log('Session opened event received for session ID: ' + payload.sessionId + ". Reloading page.");
+                        // You might want to add a small delay or a notification before reloading
+                        // For example, show a toast message: "A quiz session has been updated, reloading..."
+                        // alert("A quiz session has been updated. The page will now reload.");
+                        window.location.reload();
+                    }
+                });
+            }, function(error) {
+                console.error('STOMP error: ' + error);
+                // You could try to reconnect here after a delay
+            });
+
+            // Optional: Handle SockJS errors or close events if needed
+            socket.onclose = function() {
+                console.log('SockJS connection closed.');
+            };
+        });
+    </script>
 </body>
 </html> 

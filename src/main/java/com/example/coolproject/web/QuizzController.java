@@ -6,7 +6,7 @@ import com.example.coolproject.entity.Quizz;
 import com.example.coolproject.entity.QuizzSession;
 import com.example.coolproject.repository.ProfessorRepository;
 import com.example.coolproject.repository.UserRepository;
-import com.example.coolproject.service.AIService;
+import com.example.coolproject.service.QSmartGenService;
 import com.example.coolproject.service.QuizzService;
 import com.example.coolproject.web.dto.QuestionFormData;
 import org.slf4j.Logger;
@@ -31,13 +31,13 @@ public class QuizzController {
   private static final Logger logger = LoggerFactory.getLogger(QuizzController.class);
   private final QuizzService quizzService;
   private final ProfessorRepository professorRepository;
-  private final AIService aiService;
+  private final QSmartGenService aiService;
 
   @Autowired
   public QuizzController(QuizzService quizzService,
       UserRepository userRepository,
       ProfessorRepository professorRepository,
-      AIService aiService) {
+      QSmartGenService aiService) {
     this.quizzService = quizzService;
     this.professorRepository = professorRepository;
     this.aiService = aiService;
@@ -53,13 +53,14 @@ public class QuizzController {
   public String showCreateQuizzForm(Authentication authentication, RedirectAttributes redirectAttributes, Model model) {
     Optional<Professor> professorOpt = getCurrentProfessor(authentication);
     if (!professorOpt.isPresent()) {
-        logger.warn("Professor not found for user: {}", authentication.getName());
-        redirectAttributes.addFlashAttribute("errorMessage", "Professor profile not found.");
-        return "redirect:/quizz/my-quizzes";
+      logger.warn("Professor not found for user: {}", authentication.getName());
+      redirectAttributes.addFlashAttribute("errorMessage", "Professor profile not found.");
+      return "redirect:/quizz/my-quizzes";
     }
     if (quizzService.professorHasOpenQuizzSession(professorOpt.get())) {
-        redirectAttributes.addFlashAttribute("errorMessage", "You already have an open quiz. Please close it before creating a new one.");
-        return "redirect:/quizz/my-quizzes";
+      redirectAttributes.addFlashAttribute("errorMessage",
+          "You already have an open quiz. Please close it before creating a new one.");
+      return "redirect:/quizz/my-quizzes";
     }
     model.addAttribute("title", ""); // Initialize form backing object attributes if needed
     model.addAttribute("prompt", "");
@@ -73,20 +74,22 @@ public class QuizzController {
       @RequestParam Integer durationMinutes,
       Model model,
       HttpSession session, Authentication authentication, RedirectAttributes redirectAttributes) {
-    logger.info("Generate quizz request received with title: '{}', prompt: '{}', duration: {} minutes", title, prompt, durationMinutes);
+    logger.info("Generate quizz request received with title: '{}', prompt: '{}', duration: {} minutes", title, prompt,
+        durationMinutes);
     Optional<Professor> professorOpt = getCurrentProfessor(authentication);
     if (!professorOpt.isPresent()) {
-        redirectAttributes.addFlashAttribute("errorMessage", "Professor profile not found.");
-        return "redirect:/quizz/my-quizzes"; // Or appropriate error page
+      redirectAttributes.addFlashAttribute("errorMessage", "Professor profile not found.");
+      return "redirect:/quizz/my-quizzes"; // Or appropriate error page
     }
     if (quizzService.professorHasOpenQuizzSession(professorOpt.get())) {
-        redirectAttributes.addFlashAttribute("errorMessage", "You already have an open quiz. Please close it before creating a new one.");
-        return "redirect:/quizz/my-quizzes";
+      redirectAttributes.addFlashAttribute("errorMessage",
+          "You already have an open quiz. Please close it before creating a new one.");
+      return "redirect:/quizz/my-quizzes";
     }
     String email = authentication.getName();
 
     try {
-      List<Question> questions = aiService.generateQuestions(prompt);
+      List<Question> questions = aiService.generateQuestions(prompt, durationMinutes);
       logger.info("Generated {} questions for professor {}", questions.size(), email);
 
       session.setAttribute("tempQuestions", questions);
@@ -116,7 +119,7 @@ public class QuizzController {
     String email = authentication.getName();
 
     try {
-      List<Question> questions = aiService.generateQuestions(prompt);
+      List<Question> questions = aiService.generateQuestions(prompt, 15); // FIXME: hardcoded
       logger.info("Regenerated {} questions for professor {}", questions.size(), email);
 
       session.setAttribute("tempQuestions", questions);
@@ -150,8 +153,9 @@ public class QuizzController {
     Professor professor = professorOpt.get();
 
     if (quizzService.professorHasOpenQuizzSession(professor)) {
-        redirectAttributes.addFlashAttribute("errorMessage", "You already have an open quiz. Please close it before creating a new one.");
-        return "redirect:/quizz/my-quizzes";
+      redirectAttributes.addFlashAttribute("errorMessage",
+          "You already have an open quiz. Please close it before creating a new one.");
+      return "redirect:/quizz/my-quizzes";
     }
 
     String title = (String) httpSession.getAttribute("quizzTitle");
@@ -162,12 +166,15 @@ public class QuizzController {
     // Retrieve duration from session
     Integer durationMinutes = (Integer) httpSession.getAttribute("quizzDurationMinutes");
     if (durationMinutes == null) {
-        logger.warn("No quizz duration found in session for professor {}, defaulting or error handling might be needed.", professor.getEmail());
-        // Decide on default behavior: error out, or use a default value. For now, let's assume it must be present or was defaulted in the form.
-        // If defaulting here: durationMinutes = 15; // Example default
-        // If erroring out because it should have been set by the generate step:
-        redirectAttributes.addFlashAttribute("errorMessage", "Quiz duration was not set. Please try creating the quiz again.");
-        return "redirect:/quizz/create?error=session_duration_missing";
+      logger.warn("No quizz duration found in session for professor {}, defaulting or error handling might be needed.",
+          professor.getEmail());
+      // Decide on default behavior: error out, or use a default value. For now, let's
+      // assume it must be present or was defaulted in the form.
+      // If defaulting here: durationMinutes = 15; // Example default
+      // If erroring out because it should have been set by the generate step:
+      redirectAttributes.addFlashAttribute("errorMessage",
+          "Quiz duration was not set. Please try creating the quiz again.");
+      return "redirect:/quizz/create?error=session_duration_missing";
     }
 
     try {
@@ -181,7 +188,8 @@ public class QuizzController {
       }
 
       Quizz quizz = quizzService.createQuizzWithQuestions(title, professor, questions, durationMinutes);
-      logger.info("Quizz created with ID: {} by professor {} with duration {} minutes", quizz.getId(), professor.getEmail(), durationMinutes);
+      logger.info("Quizz created with ID: {} by professor {} with duration {} minutes", quizz.getId(),
+          professor.getEmail(), durationMinutes);
 
       httpSession.removeAttribute("tempQuestions");
       httpSession.removeAttribute("quizzTitle");
@@ -206,13 +214,15 @@ public class QuizzController {
 
     Quizz quizz = quizzService.getQuizzById(quizzId);
     if (quizz.getSession() != null) {
-      logger.warn("Quizz {} already has a session (status: {}). Requested by professor {}", quizzId, quizz.getSession().getStatus(), email);
+      logger.warn("Quizz {} already has a session (status: {}). Requested by professor {}", quizzId,
+          quizz.getSession().getStatus(), email);
       model.addAttribute("error", "This quizz already has a session or is scheduled.");
       return "quizz/my-quizzes";
     }
 
     QuizzSession session = quizzService.scheduleQuizzSession(quizzId, minutesFromNow);
-    logger.info("Session scheduled with ID {} for quizz ID {} by professor {}. Title: {}", session.getId(), quizzId, email, session.getQuizz().getTitle());
+    logger.info("Session scheduled with ID {} for quizz ID {} by professor {}. Title: {}", session.getId(), quizzId,
+        email, session.getQuizz().getTitle());
     model.addAttribute("quizzSessionInfo", session);
     return "quizz/session-scheduled";
   }
@@ -227,7 +237,7 @@ public class QuizzController {
     if (!professorOpt.isPresent()) {
       logger.error("Authenticated user {} is not found as a professor in the database for /my-quizzes.", email);
       // Consider redirecting to an error page or login if professor not found
-      return "redirect:/error/403"; 
+      return "redirect:/error/403";
     }
     Professor professor = professorOpt.get();
     List<Quizz> quizzes = quizzService.getQuizzesByProfessor(professor);
@@ -260,7 +270,8 @@ public class QuizzController {
         redirectAttributes.addFlashAttribute("successMessage", "Quizz session " + sessionId + " stopped successfully!");
       } else {
         // This case might occur if the session wasn't OPEN when stop was called
-        redirectAttributes.addFlashAttribute("infoMessage", "Quizz session " + sessionId + " was not stopped. Status: " + stoppedSession.getStatus());
+        redirectAttributes.addFlashAttribute("infoMessage",
+            "Quizz session " + sessionId + " was not stopped. Status: " + stoppedSession.getStatus());
       }
     } catch (IllegalArgumentException e) {
       redirectAttributes.addFlashAttribute("errorMessage", "Error stopping session: " + e.getMessage());

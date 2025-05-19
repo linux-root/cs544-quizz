@@ -31,7 +31,7 @@ public class QuizzService {
   private final QuestionRepository questionRepository;
   private final QuizzSessionRepository quizzSessionRepository;
   private final StudentRepository studentRepository;
-  private final AIService aiService;
+  private final QSmartGenService aiService;
   private final SimpMessagingTemplate messagingTemplate;
   private final ObjectMapper objectMapper;
 
@@ -43,7 +43,7 @@ public class QuizzService {
       QuestionRepository questionRepository,
       QuizzSessionRepository quizzSessionRepository,
       StudentRepository studentRepository,
-      AIService aiService,
+      QSmartGenService aiService,
       SimpMessagingTemplate messagingTemplate,
       ObjectMapper objectMapper) {
     this.quizzRepository = quizzRepository;
@@ -59,7 +59,8 @@ public class QuizzService {
    * Create a new quiz with AI-generated questions based on the description
    */
   @Transactional
-  public Quizz createQuizzWithGeneratedQuestions(String title, String prompt, Professor professor) {
+  public Quizz createQuizzWithGeneratedQuestions(String title, String prompt, int durationMinutes,
+      Professor professor) {
     logger.info("Creating quizz with title: '{}', prompt: '{}' for professor: {}", title, prompt, professor.getEmail());
 
     Quizz quizz = new Quizz();
@@ -72,7 +73,7 @@ public class QuizzService {
 
     // Generate questions using AI
     logger.debug("Generating questions using AI service with prompt: {}", prompt);
-    List<Question> questions = aiService.generateQuestions(prompt);
+    List<Question> questions = aiService.generateQuestions(prompt, durationMinutes);
     logger.info("Generated {} questions", questions.size());
 
     // Associate questions with the quiz
@@ -93,7 +94,8 @@ public class QuizzService {
    * Create a new quiz with pre-defined questions
    */
   @Transactional
-  public Quizz createQuizzWithQuestions(String title, Professor professor, List<Question> questions, Integer durationMinutes) {
+  public Quizz createQuizzWithQuestions(String title, Professor professor, List<Question> questions,
+      Integer durationMinutes) {
     logger.info("Creating quizz with provided questions, title: {} for professor: {}, duration: {} minutes", title,
         professor.getEmail(), durationMinutes);
 
@@ -145,7 +147,7 @@ public class QuizzService {
 
     // Generate new questions
     logger.debug("Generating new questions using AI service with prompt: {}", newPrompt);
-    List<Question> newQuestions = aiService.generateQuestions(newPrompt);
+    List<Question> newQuestions = aiService.generateQuestions(newPrompt, quizz.getDurationMinutes());
     logger.info("Generated {} new questions", newQuestions.size());
 
     // Associate new questions with the quiz
@@ -401,19 +403,22 @@ public class QuizzService {
     return hasOpenSession;
   }
 
-  // Renamed and simplified: checks for ANY open quiz session available to all students.
+  // Renamed and simplified: checks for ANY open quiz session available to all
+  // students.
   public Optional<QuizzSession> findAnyOpenQuizSession() {
     logger.debug("Searching for any open quiz session.");
     List<QuizzSession> openSessions = quizzSessionRepository.findByStatus(QuizzSession.SessionStatus.OPEN);
     if (openSessions.isEmpty()) {
-        logger.debug("No OPEN quiz sessions found in the system.");
-        return Optional.empty();
+      logger.debug("No OPEN quiz sessions found in the system.");
+      return Optional.empty();
     }
     // Return the first open session found.
-    // Business logic might later dictate which one if multiple are open (e.g., newest, etc.)
+    // Business logic might later dictate which one if multiple are open (e.g.,
+    // newest, etc.)
     // For now, any open session is considered joinable.
-    QuizzSession sessionToJoin = openSessions.get(0); 
-    logger.info("Found an OPEN quiz session ID: {}. Title: '{}'", sessionToJoin.getId(), sessionToJoin.getQuizz().getTitle());
+    QuizzSession sessionToJoin = openSessions.get(0);
+    logger.info("Found an OPEN quiz session ID: {}. Title: '{}'", sessionToJoin.getId(),
+        sessionToJoin.getQuizz().getTitle());
     return Optional.of(sessionToJoin);
   }
 }

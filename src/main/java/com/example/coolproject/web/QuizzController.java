@@ -43,9 +43,26 @@ public class QuizzController {
     this.aiService = aiService;
   }
 
+  private Optional<Professor> getCurrentProfessor(Authentication authentication) {
+    String email = authentication.getName();
+    return professorRepository.findByEmail(email);
+  }
+
   @GetMapping("/create")
   @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
-  public String showCreateQuizzForm() {
+  public String showCreateQuizzForm(Authentication authentication, RedirectAttributes redirectAttributes, Model model) {
+    Optional<Professor> professorOpt = getCurrentProfessor(authentication);
+    if (!professorOpt.isPresent()) {
+        logger.warn("Professor not found for user: {}", authentication.getName());
+        redirectAttributes.addFlashAttribute("errorMessage", "Professor profile not found.");
+        return "redirect:/quizz/my-quizzes";
+    }
+    if (quizzService.professorHasOpenQuizzSession(professorOpt.get())) {
+        redirectAttributes.addFlashAttribute("errorMessage", "You already have an open quiz. Please close it before creating a new one.");
+        return "redirect:/quizz/my-quizzes";
+    }
+    model.addAttribute("title", ""); // Initialize form backing object attributes if needed
+    model.addAttribute("prompt", "");
     return "quizz/create";
   }
 
@@ -54,8 +71,17 @@ public class QuizzController {
   public String generateQuizz(@RequestParam String title,
       @RequestParam String prompt,
       Model model,
-      HttpSession session, Authentication authentication) {
+      HttpSession session, Authentication authentication, RedirectAttributes redirectAttributes) {
     logger.info("Generate quizz request received with title: '{}', prompt: '{}'", title, prompt);
+    Optional<Professor> professorOpt = getCurrentProfessor(authentication);
+    if (!professorOpt.isPresent()) {
+        redirectAttributes.addFlashAttribute("errorMessage", "Professor profile not found.");
+        return "redirect:/quizz/my-quizzes"; // Or appropriate error page
+    }
+    if (quizzService.professorHasOpenQuizzSession(professorOpt.get())) {
+        redirectAttributes.addFlashAttribute("errorMessage", "You already have an open quiz. Please close it before creating a new one.");
+        return "redirect:/quizz/my-quizzes";
+    }
     String email = authentication.getName();
 
     try {
@@ -110,20 +136,25 @@ public class QuizzController {
   @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
   public String createQuizzWithQuestions(@ModelAttribute QuestionFormData questionFormData,
       HttpSession httpSession,
-      Model model, Authentication authentication) {
+      Model model, Authentication authentication, RedirectAttributes redirectAttributes) {
     logger.info("Create quizz with questions request received");
-    String email = authentication.getName();
-    Optional<Professor> professorOpt = professorRepository.findByEmail(email);
+    Optional<Professor> professorOpt = getCurrentProfessor(authentication);
 
     if (!professorOpt.isPresent()) {
-      logger.error("Authenticated user {} is not found as a professor in the database.", email);
-      return "redirect:/error/403";
+      logger.error("Authenticated user {} is not found as a professor in the database.", authentication.getName());
+      redirectAttributes.addFlashAttribute("errorMessage", "Professor profile not found.");
+      return "redirect:/quizz/create?error=professor_not_found"; // Or a more general error page
     }
     Professor professor = professorOpt.get();
 
+    if (quizzService.professorHasOpenQuizzSession(professor)) {
+        redirectAttributes.addFlashAttribute("errorMessage", "You already have an open quiz. Please close it before creating a new one.");
+        return "redirect:/quizz/my-quizzes";
+    }
+
     String title = (String) httpSession.getAttribute("quizzTitle");
     if (title == null) {
-      logger.error("No quizz title found in session for professor {}", email);
+      logger.error("No quizz title found in session for professor {}", professor.getEmail());
       return "redirect:/quizz/create?error=session";
     }
 
@@ -138,7 +169,7 @@ public class QuizzController {
       }
 
       Quizz quizz = quizzService.createQuizzWithQuestions(title, professor, questions);
-      logger.info("Quizz created with ID: {} by professor {}", quizz.getId(), email);
+      logger.info("Quizz created with ID: {} by professor {}", quizz.getId(), professor.getEmail());
 
       httpSession.removeAttribute("tempQuestions");
       httpSession.removeAttribute("quizzTitle");
@@ -147,7 +178,7 @@ public class QuizzController {
       model.addAttribute("quizz", quizz);
       return "quizz/session-options";
     } catch (Exception e) {
-      logger.error("Error creating quizz for professor {}: ", email, e);
+      logger.error("Error creating quizz for professor {}: ", professor.getEmail(), e);
       return "redirect:/quizz/create?error=create";
     }
   }
@@ -182,12 +213,15 @@ public class QuizzController {
     Optional<Professor> professorOpt = professorRepository.findByEmail(email);
     if (!professorOpt.isPresent()) {
       logger.error("Authenticated user {} is not found as a professor in the database for /my-quizzes.", email);
-      return "redirect:/error/403";
+      // Consider redirecting to an error page or login if professor not found
+      return "redirect:/error/403"; 
     }
     Professor professor = professorOpt.get();
     List<Quizz> quizzes = quizzService.getQuizzesByProfessor(professor);
     logger.info("Found {} quizzes for professor {}", quizzes.size(), email);
 
+    boolean canCreateNewQuizz = !quizzService.professorHasOpenQuizzSession(professor);
+    model.addAttribute("canCreateNewQuizz", canCreateNewQuizz);
     model.addAttribute("quizzes", quizzes);
     return "quizz/my-quizzes";
   }

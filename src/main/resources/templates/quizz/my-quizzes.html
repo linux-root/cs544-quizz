@@ -13,9 +13,33 @@
     <div class="container mx-auto px-4 py-8">
         <div class="flex justify-between items-center mb-8">
             <h1 class="text-3xl font-bold">My Quizzes</h1>
-            <a th:href="@{/quizz/create}" class="btn btn-primary">Create New Quizz</a>
+            <a th:href="@{/quizz/create}" class="btn btn-primary"
+               th:classappend="${!canCreateNewQuizz} ? 'btn-disabled' : ''"
+               th:attr="title=${!canCreateNewQuizz} ? 'Close your open quiz session to create a new one' : 'Create a new quizz'">
+               Create New Quizz
+            </a>
         </div>
         
+        <!-- Flash messages for errors or success -->
+        <div th:if="${errorMessage}" class="alert alert-error shadow-lg mb-4">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span th:text="${errorMessage}"></span>
+            </div>
+        </div>
+        <div th:if="${successMessage}" class="alert alert-success shadow-lg mb-4">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span th:text="${successMessage}"></span>
+            </div>
+        </div>
+        <div th:if="${infoMessage}" class="alert alert-info shadow-lg mb-4">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current flex-shrink-0 h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span th:text="${infoMessage}"></span>
+            </div>
+        </div>
+
         <div class="overflow-x-auto">
             <table class="table w-full">
                 <thead>

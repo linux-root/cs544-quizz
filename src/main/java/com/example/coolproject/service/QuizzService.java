@@ -376,4 +376,14 @@ public class QuizzService {
 
     return savedSession;
   }
+
+  public boolean professorHasOpenQuizzSession(Professor professor) {
+    boolean hasOpenSession = quizzSessionRepository.existsByQuizz_CreatorAndStatus(professor, QuizzSession.SessionStatus.OPEN);
+    if (hasOpenSession) {
+        logger.info("Professor {} (ID: {}) currently has an OPEN quiz session.", professor.getEmail(), professor.getId());
+    } else {
+        logger.info("Professor {} (ID: {}) does not have any OPEN quiz sessions.", professor.getEmail(), professor.getId());
+    }
+    return hasOpenSession;
+  }
 }

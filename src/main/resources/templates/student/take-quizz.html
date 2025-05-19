@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${quizzTitle} + ' - Take Quiz'">Take Quiz</title>
     <link rel="stylesheet" th:href="@{/css/output.css}"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
 </head>
 <body class="bg-base-200 p-4 md:p-8">
 
@@ -30,12 +31,14 @@
                     <p class="mb-3 whitespace-pre-wrap" th:text="${question.questionText}">Question text will appear here.</p>
                     
                     <div>
-                        <label th:for="'answer-' + ${question.id}" class="block text-sm font-medium text-base-content/80 mb-1">Your Answer:</label>
-                        <textarea th:id="'answer-' + ${question.id}" 
-                                  th:name="'answers[' + ${question.id} + ']'" 
-                                  rows="4" 
-                                  class="textarea textarea-bordered w-full" 
-                                  placeholder="Type your answer here..."></textarea>
+                        <label th:for="'answer-' + ${question.id}" class="block text-sm font-medium text-base-content/80 mb-1">Your Answer (Markdown supported):</label>
+                        <textarea th:id="'answer-' + ${question.id}"
+                                  th:name="'answers[' + ${question.id} + ']'"
+                                  rows="4"
+                                  class="textarea textarea-bordered w-full mb-2"
+                                  placeholder="Type your answer here in Markdown..."></textarea>
+                        <button type="button" class="btn btn-sm btn-outline mb-2 preview-btn" th:data-qid="${question.id}">Preview</button>
+                        <div class="markdown-preview p-4 border border-base-300 rounded bg-base-100 mt-2 hidden" th:id="'preview-' + ${question.id}"></div>
                     </div>
                 </div>
 
@@ -50,6 +53,33 @@
         </div>
     </div>
 
-    <script th:src="@{/js/theme-handler.js}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <!-- <script th:src="@{/js/theme-handler.js}"></script> -->
+    <script>
+    marked.setOptions({
+      highlight: function(code, lang) {
+        if (lang && hljs.getLanguage(lang)) {
+          return hljs.highlight(code, { language: lang }).value;
+        }
+        return hljs.highlightAuto(code).value;
+      }
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.preview-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var qid = btn.getAttribute('data-qid');
+                var textarea = document.getElementById('answer-' + qid);
+                var preview = document.getElementById('preview-' + qid);
+                if (textarea && preview) {
+                    var md = textarea.value;
+                    preview.innerHTML = marked.parse(md);
+                    preview.classList.remove('hidden');
+                    hljs.highlightAll();
+                }
+            });
+        });
+    });
+    </script>
 </body>
 </html> 

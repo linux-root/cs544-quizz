@@ -22,6 +22,7 @@
             <!-- Student Login Card -->
             <div class="card bg-base-100 shadow-xl">
                 <div class="card-body items-center text-center">
+                    <img src="/images/student.png" alt="Student Avatar" class="rounded-full w-24 h-24 object-cover mb-4">
                     <h2 class="card-title">Login as Student</h2>
                     <p>Use your GitHub account to log in.</p>
                     <div class="card-actions justify-center mt-4">
@@ -37,25 +38,18 @@
 
             <!-- Professor Login Card -->
             <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <h2 class="card-title text-center">Login as Professor</h2>
-                    <form th:action="@{/login/professor}" method="post" class="space-y-4">
+                <div class="card-body items-center text-center">
+                    <img src="/images/prof.jpeg" alt="Professor Avatar" class="rounded-full w-24 h-24 object-cover mb-4">
+                    <h2 class="card-title">Login as Professor</h2>
+                    <form th:action="@{/login/professor/initiate}" method="post" class="space-y-4 w-full">
                         <div>
                             <label for="email" class="label">
                                 <span class="label-text">Email</span>
                             </label>
                             <input type="email" name="email" id="email" placeholder="professor@example.com" class="input input-bordered w-full" required />
                         </div>
-                        <div>
-                            <label for="code" class="label">
-                                <span class="label-text">Verification Code</span>
-                            </label>
-                            <input type="text" name="code" id="code" placeholder="######" 
-                                   class="input input-bordered w-full max-w-xs mx-auto text-center tracking-[.5em] text-lg" 
-                                   inputmode="numeric" pattern="[0-9]*" maxlength="6" required />
-                        </div>
-                        <div class="card-actions justify-center mt-2">
-                            <button type="submit" class="btn btn-secondary w-full">Login with Email & Code</button>
+                        <div class="card-actions justify-center mt-4">
+                            <button type="submit" class="btn btn-secondary w-full">Next</button>
                         </div>
                     </form>
                 </div>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Professor Login</title>
+    <link rel="stylesheet" th:href="@{/css/output.css}"/>
+</head>
+<body class="bg-base-200 min-h-screen p-4 flex flex-col">
+
+    <div th:replace="~{fragments/navbar :: navbar}" class="flex-shrink-0"></div>
+
+    <div class="flex flex-col items-center justify-center flex-grow">
+        <div th:if="${param.error}" class="alert alert-error shadow-lg max-w-md mb-4">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>Verification failed. Please check the code and try again.</span>
+            </div>
+        </div>
+         <div th:if="${session.successMessage}" class="alert alert-success shadow-lg max-w-md mb-4">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span th:text="${session.successMessage}"></span>
+            </div>
+        </div>
+
+
+        <div class="card bg-base-100 shadow-xl w-full max-w-md">
+            <div class="card-body items-center text-center">
+                <h2 class="card-title">Enter Verification Code</h2>
+                <p th:if="${session.professorEmailForVerification}">
+                    A verification code has been sent to <strong th:text="${session.professorEmailForVerification}">your email</strong>.
+                    Please enter it below.
+                </p>
+                <p th:unless="${session.professorEmailForVerification}">
+                    Please enter the verification code sent to your email.
+                </p>
+
+                <form th:action="@{/login/professor/verify}" method="post" class="space-y-4 w-full mt-4">
+                    <div>
+                        <label for="code" class="label">
+                            <span class="label-text">Verification Code</span>
+                        </label>
+                        <input type="text" name="code" id="code" placeholder="######"
+                               class="input input-bordered w-full max-w-xs mx-auto text-center tracking-[.5em] text-lg"
+                               maxlength="6" required autofocus/>
+                    </div>
+                    <div class="card-actions justify-center mt-4">
+                        <button type="submit" class="btn btn-primary w-full">Verify Code</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script th:src="@{/js/theme-handler.js}"></script>
+</body>
+</html> 

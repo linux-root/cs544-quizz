@@ -11,6 +11,16 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import jakarta.servlet.http.HttpSession;
+import com.example.coolproject.security.ProfessorAuthenticationProvider;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.SecurityContextRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -20,11 +30,15 @@ public class HomeController {
 
     private final UserRepository userRepository;
     private final QuizzService quizzService;
+    private final ProfessorAuthenticationProvider professorAuthenticationProvider;
+    private final SecurityContextRepository securityContextRepository;
 
     @Autowired
-    public HomeController(UserRepository userRepository, QuizzService quizzService) {
+    public HomeController(UserRepository userRepository, QuizzService quizzService, ProfessorAuthenticationProvider professorAuthenticationProvider, SecurityContextRepository securityContextRepository) {
         this.userRepository = userRepository;
         this.quizzService = quizzService;
+        this.professorAuthenticationProvider = professorAuthenticationProvider;
+        this.securityContextRepository = securityContextRepository;
     }
 
     @GetMapping("/")
@@ -118,8 +132,68 @@ public class HomeController {
         return "login";
     }
 
+    @GetMapping("/verify-professor")
+    public String verifyProfessorPage(HttpSession session, Model model) {
+        String email = (String) session.getAttribute("professorEmailForVerification");
+        if (email == null) {
+            // If email is not in session, perhaps the user navigated here directly
+            // or session expired. Redirect to initial login step.
+            return "redirect:/login";
+        }
+        // Optionally add email to model if needed by the template directly (already available via session object)
+        // model.addAttribute("professorEmail", email);
+        return "verify-professor";
+    }
+
     @GetMapping("/error/403")
     public String accessDenied() {
         return "error/403";
+    }
+
+    @PostMapping("/login/professor/initiate")
+    public String initiateProfessorLogin(@RequestParam String email, HttpSession session, RedirectAttributes redirectAttributes) {
+        try {
+            String code = professorAuthenticationProvider.generateAndStoreVerificationCode(email);
+            session.setAttribute("professorEmailForVerification", email);
+            // session.setAttribute("professorVerificationCode", code); // Storing code in session for now, remove if emailed
+            // For testing, let's add a success message that it was "sent" (logged to console)
+            redirectAttributes.addFlashAttribute("successMessage", "A verification code has been sent to your console (simulating email).");
+            return "redirect:/verify-professor";
+        } catch (BadCredentialsException e) {
+            // Handle case where email is not a recognized professor email
+            redirectAttributes.addFlashAttribute("error", "true"); // Generic error on login page
+            redirectAttributes.addFlashAttribute("errorMessage", e.getMessage()); // More specific message if login page can show it
+            return "redirect:/login?error=true&message=InvalidProfessorEmail"; // Or a more specific error parameter
+        }        
+    }
+
+    @PostMapping("/login/professor/verify")
+    public String verifyProfessorCode(@RequestParam String code, 
+                                      HttpSession session, 
+                                      RedirectAttributes redirectAttributes,
+                                      HttpServletRequest request,
+                                      HttpServletResponse response) {
+        String email = (String) session.getAttribute("professorEmailForVerification");
+        if (email == null) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Session expired or invalid state. Please try logging in again.");
+            return "redirect:/login?error=true";
+        }
+
+        try {
+            Authentication authentication = professorAuthenticationProvider.verifyCodeAndBuildAuthentication(email, code);
+            if (authentication != null && authentication.isAuthenticated()) {
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+                securityContextRepository.saveContext(SecurityContextHolder.getContext(), request, response);
+                
+                session.removeAttribute("professorEmailForVerification");
+                return "redirect:/home";
+            } else {
+                redirectAttributes.addFlashAttribute("error", "true");
+                return "redirect:/verify-professor?error=true";
+            }
+        } catch (BadCredentialsException e) {
+            redirectAttributes.addFlashAttribute("error", "true");
+            return "redirect:/verify-professor?error=true";
+        }
     }
 } 

@@ -14,6 +14,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -47,9 +49,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+            .securityContext(securityContext -> 
+                securityContext.securityContextRepository(this.securityContextRepository())
+            )
             .authorizeHttpRequests(authorizeRequests ->
                 authorizeRequests
-                    .requestMatchers("/", "/login", "/login/professor", "/oauth2/**", "/error").permitAll()
+                    .requestMatchers("/", "/login", "/login/professor", "/oauth2/**", "/error",
+                                     "/login/professor/initiate", "/verify-professor", "/login/professor/verify")
+                    .permitAll()
                     .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
                     .anyRequest().authenticated()
             )
@@ -76,6 +83,11 @@ public class SecurityConfig {
                 exceptions.accessDeniedPage("/error/403")
             );
         return http.build();
+    }
+
+    @Bean
+    public SecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
     }
 
     @Bean

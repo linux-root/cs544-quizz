@@ -19,12 +19,16 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.UUID;
 
 @Component
 public class ProfessorAuthenticationProvider implements AuthenticationProvider {
 
     private final List<String> professorEmails;
     private final ProfessorRepository professorRepository;
+    private final Map<String, String> verificationCodeStore = new HashMap<>();
 
     @Autowired
     public ProfessorAuthenticationProvider(@Value("${app.security.professor-emails}") String emails, ProfessorRepository professorRepository) {
@@ -35,37 +39,87 @@ public class ProfessorAuthenticationProvider implements AuthenticationProvider {
     }
 
     @Override
-    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-        String email = authentication.getName();
-        String code = authentication.getCredentials().toString();
+    public Authentication authenticate(Authentication authenticationTokenToProcess) throws AuthenticationException {
+        // Check if this token is one we've already processed and put in the context
+        if (authenticationTokenToProcess.isAuthenticated() && authenticationTokenToProcess.getCredentials() == null &&
+            authenticationTokenToProcess instanceof UsernamePasswordAuthenticationToken &&
+            !authenticationTokenToProcess.getAuthorities().isEmpty() && // Ensure authorities exist
+            authenticationTokenToProcess.getAuthorities().iterator().next().getAuthority().equals("ROLE_PROFESSOR")) {
+            // This looks like the token we manually created and authenticated after code verification.
+            // Avoid re-processing its (now null) credentials through verifyCodeAndBuildAuthentication,
+            // which would fail because the one-time code is used up from the store.
+            // This situation suggests that Spring's AuthenticationManager was invoked with an already-authenticated token from the SecurityContext.
+            // Ideally, this provider shouldn't be called in this scenario for re-authentication.
+            // By returning the token as is, we prevent it from being invalidated.
+            System.err.println("ProfessorAuthenticationProvider.authenticate was called with an already authenticated professor token (post-verification). Returning it as is.");
+            return authenticationTokenToProcess;
+        }
 
+        String email = authenticationTokenToProcess.getName();
+        Object credentialsObj = authenticationTokenToProcess.getCredentials();
+
+        // If credentials are legitimately null for an initial authentication attempt by this provider's design
+        if (credentialsObj == null && !"ping@w47s0n.com".equalsIgnoreCase(email)) {
+            // For non-ping users, code (credentials) is mandatory for the initial verification step handled by this provider.
+            // This path might be hit if an unauthenticated token with null credentials is passed.
+            throw new BadCredentialsException("Verification code (credentials) is required for email: " + email);
+        }
+        
+        String code = (credentialsObj == null) ? null : credentialsObj.toString();
+        
+        // Proceed to actual verification logic which handles initial code verification
+        // (verifyCodeAndBuildAuthentication handles null code for ping and expects code for others from the store)
+        return verifyCodeAndBuildAuthentication(email, code);
+    }
+
+    public String generateAndStoreVerificationCode(String email) {
+        if (!professorEmails.contains(email)) {
+            throw new BadCredentialsException("Email not found in the list of registered professor emails.");
+        }
+        String code = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        verificationCodeStore.put(email, code);
+        System.out.println("Verification code for " + email + ": " + code);
+        return code;
+    }
+
+    public Authentication verifyCodeAndBuildAuthentication(String email, String code) throws AuthenticationException {
         if (professorEmails.contains(email)) {
+            String storedCode = verificationCodeStore.get(email);
+
+            boolean codeIsValid;
             if ("ping@w47s0n.com".equalsIgnoreCase(email)) {
-                // Successfully authenticated
+                if (storedCode == null) {
+                    System.err.println("Warning: No code found in store for ping@w47s0n.com, allowing authentication based on original simplified logic. This should be reviewed.");
+                    codeIsValid = true;
+                } else {
+                    codeIsValid = storedCode.equals(code);
+                }
+            } else {
+                if (storedCode == null) {
+                    throw new BadCredentialsException("Verification code has expired or was not generated for this email. Please try logging in again.");
+                }
+                codeIsValid = storedCode.equals(code);
+            }
+
+            if (codeIsValid) {
+                verificationCodeStore.remove(email);
+
                 Optional<Professor> existingProfessor = professorRepository.findByEmail(email);
                 Professor professor;
                 if (existingProfessor.isPresent()) {
                     professor = existingProfessor.get();
-                    // Update details if necessary, e.g., name, if we had a way to get it
-                    // professor.setName(name); // Example if name could change or be sourced elsewhere
                 } else {
                     Set<String> roles = new HashSet<>();
                     roles.add("ROLE_PROFESSOR");
-                    // Name for professor: using the email part before '@' or just email if no other source
-                    String name = email.split("@")[0]; 
+                    String name = email.split("@")[0];
                     professor = new Professor(email, name, roles);
                 }
                 professorRepository.save(professor);
-                
-                // The principal in UsernamePasswordAuthenticationToken should ideally be a UserDetails object
-                // or at least an object that your application can consistently use to get user info.
-                // Here, using email as principal. For more complex scenarios, use the 'professor' object or a UserDetails adapter.
-                return new UsernamePasswordAuthenticationToken(email, code, Collections.singletonList(new SimpleGrantedAuthority("ROLE_PROFESSOR")));
+                return new UsernamePasswordAuthenticationToken(email, null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_PROFESSOR")));
             }
-            throw new BadCredentialsException("Invalid code for professor email. Code verification not yet implemented for this account.");
-        } else {
-            return null; 
+            throw new BadCredentialsException("Invalid verification code.");
         }
+        return null;
     }
 
     @Override

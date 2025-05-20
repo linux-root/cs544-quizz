@@ -20,9 +20,8 @@
             <p class="mb-2 text-sm text-base-content/70">Session ID: <span th:text="${quizzSessionId}"></span></p>
             <p class="mb-6 text-sm text-base-content/70">Status: <span class="badge badge-info">IN PROGRESS (UI Only)</span></p>
 
-            <!-- Form to submit answers (not yet functional for submission) -->
-            <!-- Action URL will need to be updated when submission is implemented -->
-            <form id="quizAttemptForm" th:action="@{/quiz/session/{sessionId}/submit(sessionId=${quizzSessionId})}" method="post">
+            <!-- Form to submit answers -->
+            <form id="quizAttemptForm" th:action="@{/student/session/{sessionId}/submit(sessionId=${quizzSessionId})}" method="post">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
                 
                 <div th:each="question, iterStat : ${questions}" class="mb-8 p-4 border border-base-300 rounded-lg bg-base-200/30">
@@ -40,6 +39,7 @@
                                   th:name="'answers[' + ${question.id} + ']'"
                                   rows="4"
                                   class="textarea textarea-bordered w-full mb-2"
+                                  th:text="${existingAnswers != null ? existingAnswers[question.id] : ''}"
                                   placeholder="Type your answer here in Markdown..."></textarea>
                         <button type="button" class="btn btn-sm btn-outline mb-2 preview-btn" th:data-qid="${question.id}">Preview</button>
                         <div class="markdown-preview p-4 border border-base-300 rounded bg-base-100 mt-2 hidden" th:id="'preview-' + ${question.id}"></div>
@@ -47,8 +47,11 @@
                 </div>
 
                 <div class="mt-8 text-center">
-                    <button type="submit" class="btn btn-primary btn-lg">Submit Quiz</button>
-                    <!-- Submission logic for this button is not yet implemented -->
+                    <button type="submit" class="btn btn-primary btn-lg" th:disabled="!${isSessionOpen}">
+                        <span th:if="${isResubmission}">Update Answers</span>
+                        <span th:unless="${isResubmission}">Submit Quiz</span>
+                    </button>
+                    <p th:if="!${isSessionOpen}" class="text-warning mt-2">This quiz session is not currently open for submissions.</p>
                 </div>
             </form>
             
@@ -133,4 +136,4 @@
     });
     </script>
 </body>
-</html> 
+</html>

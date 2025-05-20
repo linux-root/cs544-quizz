@@ -15,36 +15,49 @@
         <h1 class="text-3xl font-bold mb-6">Review Generated Questions</h1>
         
         <div class="mb-8 p-4 bg-base-100 rounded-lg shadow">
-            <h2 class="text-xl font-semibold mb-2">Quizz Details</h2>
-            <div>
-                <strong>Title:</strong> <span th:text="${title}" class="italic text-gray-700"></span>
+            <!-- Quiz Details View Section -->
+            <div id="quiz-details-view-section">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-semibold">Quizz Details</h2>
+                    <button type="button" id="quiz-details-edit-btn" class="btn btn-sm btn-outline btn-primary">Edit Details</button>
+                </div>
+                <div class="mt-2">
+                    <strong>Title:</strong> <span th:text="${title}" class="italic text-gray-700"></span>
+                </div>
+                <div class="mt-1">
+                    <strong>Prompt Used:</strong> <p th:text="${prompt}" class="italic text-gray-600 whitespace-pre-wrap"></p>
+                </div>
             </div>
-            <div class="mt-1">
-                <strong>Prompt Used:</strong> <p th:text="${prompt}" class="italic text-gray-600 whitespace-pre-wrap"></p>
+
+            <!-- Quiz Details Edit Section (contains the form) -->
+            <div id="quiz-details-edit-section" class="hidden mt-4 border-t pt-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold">Regenerate</h3>
+                    <button type="button" id="quiz-details-view-btn" class="btn btn-sm btn-outline">View Details</button>
+                </div>
+                
+                <form th:action="@{/quizz/regenerate}" method="post" class="mt-2">
+                    <div class="form-control">
+                        <label class="label" for="editTitle">
+                            <span class="label-text">Title</span>
+                        </label>
+                        <input type="text" id="editTitle" name="title" 
+                               class="input input-bordered" 
+                               th:value="${title}" />
+                    </div>
+                    <div class="form-control mt-2">
+                        <label class="label" for="editPrompt">
+                            <span class="label-text">Prompt</span>
+                        </label>
+                        <textarea id="editPrompt" name="prompt" 
+                                  class="textarea textarea-bordered h-24" 
+                                  th:text="${prompt}"></textarea>
+                    </div>
+                    <div class="form-control mt-3">
+                        <button type="submit" class="btn btn-outline btn-secondary">Regenerate Questions</button>
+                    </div>
+                </form>
             </div>
-            
-            <form th:action="@{/quizz/regenerate}" method="post" class="mt-6 border-t pt-4">
-                <h3 class="text-lg font-semibold mb-2">Regenerate</h3>
-                <div class="form-control">
-                    <label class="label" for="editTitle">
-                        <span class="label-text">Title</span>
-                    </label>
-                    <input type="text" id="editTitle" name="title" 
-                           class="input input-bordered" 
-                           th:value="${title}" />
-                </div>
-                <div class="form-control mt-2">
-                    <label class="label" for="editPrompt">
-                        <span class="label-text">Prompt</span>
-                    </label>
-                    <textarea id="editPrompt" name="prompt" 
-                              class="textarea textarea-bordered h-24" 
-                              th:text="${prompt}"></textarea>
-                </div>
-                <div class="form-control mt-3">
-                    <button type="submit" class="btn btn-outline btn-secondary">Regenerate Questions</button>
-                </div>
-            </form>
         </div>
         
         <form th:action="@{/quizz/create-quizz}" method="post" class="space-y-8">
@@ -108,6 +121,7 @@
     <script th:inline="javascript">
     /*<![CDATA[*/
     document.addEventListener('DOMContentLoaded', function () {
+        // Marked.js setup
         marked.setOptions({
           highlight: function(code, lang) {
             const language = hljs.getLanguage(lang) ? lang : 'plaintext';
@@ -122,6 +136,7 @@
           xhtml: false
         });
 
+        // Function to render markdown and highlight code for questions/answers
         function renderAndHighlight(editorId, displayId) {
             const editor = document.getElementById(editorId);
             const display = document.getElementById(displayId);
@@ -134,24 +149,23 @@
             }
         }
 
+        // Function to toggle edit/view for questions/answers
         window.toggleEditView = function(button) {
             const index = button.getAttribute('data-index');
-            const type = button.getAttribute('data-type'); // 'question' or 'answer'
-            
+            const type = button.getAttribute('data-type');
             const editorId = type + '-editor-' + index;
             const displayId = type + '-display-' + index;
-
             const editor = document.getElementById(editorId);
             const display = document.getElementById(displayId);
 
             if (editor && display) {
                 const isDisplayHidden = display.classList.contains('hidden');
-                if (isDisplayHidden) { // Currently in edit mode, switching to view mode
-                    renderAndHighlight(editorId, displayId); // Ensure preview is up-to-date
+                if (isDisplayHidden) { 
+                    renderAndHighlight(editorId, displayId);
                     editor.classList.add('hidden');
                     display.classList.remove('hidden');
                     button.textContent = 'Edit';
-                } else { // Currently in view mode, switching to edit mode
+                } else { 
                     editor.classList.remove('hidden');
                     display.classList.add('hidden');
                     button.textContent = 'View';
@@ -159,30 +173,47 @@
             }
         }
 
+        // Initialize questions/answers view toggle and rendering
         const questionsData = /*[[${questions}]]*/ [];
-        
         questionsData.forEach((question, index) => {
             const questionEditorId = 'question-editor-' + index;
             const questionDisplayId = 'question-display-' + index;
             const answerEditorId = 'answer-editor-' + index;
             const answerDisplayId = 'answer-display-' + index;
 
-            // Initial render for (now visible by default) display divs
             renderAndHighlight(questionEditorId, questionDisplayId);
             renderAndHighlight(answerEditorId, answerDisplayId);
 
-            // Add event listeners for real-time updates to the (now initially hidden) editor 
-            // which in turn updates the display div (which might be visible or hidden)
             const questionEditor = document.getElementById(questionEditorId);
             if (questionEditor) {
                 questionEditor.addEventListener('input', () => renderAndHighlight(questionEditorId, questionDisplayId));
             }
-
             const answerEditor = document.getElementById(answerEditorId);
             if (answerEditor) {
                 answerEditor.addEventListener('input', () => renderAndHighlight(answerEditorId, answerDisplayId));
             }
         });
+
+        // --- Quiz Details View/Edit Toggle --- 
+        const quizDetailsViewSection = document.getElementById('quiz-details-view-section');
+        const quizDetailsEditSection = document.getElementById('quiz-details-edit-section');
+        const editDetailsButton = document.getElementById('quiz-details-edit-btn');
+        const viewDetailsButton = document.getElementById('quiz-details-view-btn');
+
+        function toggleQuizDetailsForm() {
+            if (quizDetailsViewSection && quizDetailsEditSection) {
+                quizDetailsViewSection.classList.toggle('hidden');
+                quizDetailsEditSection.classList.toggle('hidden');
+            }
+        }
+
+        if (editDetailsButton) {
+            editDetailsButton.addEventListener('click', toggleQuizDetailsForm);
+        }
+        if (viewDetailsButton) {
+            viewDetailsButton.addEventListener('click', toggleQuizDetailsForm);
+        }
+        // Initial state is set by HTML classes (view visible, edit hidden)
     });
     /*]]>*/
     </script>

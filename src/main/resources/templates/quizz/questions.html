@@ -24,10 +24,10 @@
             </div>
             
             <form th:action="@{/quizz/regenerate}" method="post" class="mt-6 border-t pt-4">
-                <h3 class="text-lg font-semibold mb-2">Edit Details & Regenerate Questions</h3>
+                <h3 class="text-lg font-semibold mb-2">Regenerate</h3>
                 <div class="form-control">
                     <label class="label" for="editTitle">
-                        <span class="label-text">Edit Title</span>
+                        <span class="label-text">Title</span>
                     </label>
                     <input type="text" id="editTitle" name="title" 
                            class="input input-bordered" 
@@ -35,14 +35,14 @@
                 </div>
                 <div class="form-control mt-2">
                     <label class="label" for="editPrompt">
-                        <span class="label-text">Edit Prompt to Regenerate Questions</span>
+                        <span class="label-text">Prompt</span>
                     </label>
                     <textarea id="editPrompt" name="prompt" 
                               class="textarea textarea-bordered h-24" 
                               th:text="${prompt}"></textarea>
                 </div>
                 <div class="form-control mt-3">
-                    <button type="submit" class="btn btn-outline btn-secondary">Regenerate Questions with New Prompt/Title</button>
+                    <button type="submit" class="btn btn-outline btn-secondary">Regenerate Questions</button>
                 </div>
             </form>
         </div>

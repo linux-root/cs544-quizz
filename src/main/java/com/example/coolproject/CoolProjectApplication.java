@@ -39,8 +39,8 @@ public class CoolProjectApplication {
 
             Example of the expected JSON structure for one question:
             {
-              "questionText": "### Question 1\n\nExplain the concept of Dependency Injection in Spring. Provide a simple code example.",
-              "modelAnswer": "### Model Answer 1\n\nDependency Injection (DI) is a design pattern...\n\n**Code Example:**\n```java\n// Your Java code here\n```"
+              "questionText": "Explain the concept of Dependency Injection in Spring. Provide a simple code example.",
+              "modelAnswer": "Dependency Injection (DI) is a design pattern...\n\n**Code Example:**\n```java\n// Your Java code here\n```"
             }
 
             Provide exactly 3 such question objects in the JSON array.

@@ -29,7 +29,10 @@
                     <h2 class="text-xl font-semibold mb-3">
                         Question <span th:text="${iterStat.count}"></span>:
                     </h2>
-                    <p class="mb-3 whitespace-pre-wrap" th:text="${question.questionText}">Question text will appear here.</p>
+                    <!-- Replace text display with a div that will be filled with markdown -->
+                    <div class="question-markdown mb-3 whitespace-pre-wrap" th:id="'question-' + ${question.id}" th:data-question-text="${question.questionText}">
+                        Loading question...
+                    </div>
                     
                     <div>
                         <label th:for="'answer-' + ${question.id}" class="block text-sm font-medium text-base-content/80 mb-1">Your Answer (Markdown supported):</label>
@@ -67,6 +70,18 @@
       }
     });
     document.addEventListener('DOMContentLoaded', function () {
+        // Render all question markdown on page load
+        document.querySelectorAll('.question-markdown').forEach(function(questionDiv) {
+            const questionText = questionDiv.getAttribute('data-question-text');
+            if (questionText) {
+                questionDiv.innerHTML = marked.parse(questionText);
+            }
+        });
+        
+        // Apply syntax highlighting to all code blocks
+        hljs.highlightAll();
+        
+        // Handle preview button functionality
         document.querySelectorAll('.preview-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 var qid = btn.getAttribute('data-qid');

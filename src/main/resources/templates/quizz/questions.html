@@ -6,6 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="/css/output.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
 </head>
 <body class="min-h-screen bg-base-200">
     <div th:replace="~{fragments/navbar :: navbar}"></div>
@@ -52,23 +53,39 @@
                     <h2 class="card-title">Question #<span th:text="${status.count}"></span></h2>
                     
                     <div class="form-control">
-                        <label class="label">
-                            <span class="label-text">Question</span>
-                        </label>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="label py-0" th:for="'question-editor-' + ${status.index}">
+                                <span class="label-text">Question</span>
+                            </label>
+                            <button type="button" class="btn btn-xs btn-outline btn-accent" 
+                                    th:data-index="${status.index}" data-type="question"
+                                    onclick="toggleEditView(this)">Edit</button>
+                        </div>
                         <textarea 
-                            th:name="|questions[${status.index}].questionText|" 
-                            class="textarea textarea-bordered h-24" 
+                            th:name="|questions[${status.index}].questionText|"
+                            th:id="'question-editor-' + ${status.index}" 
+                            class="textarea textarea-bordered h-24 hidden" 
                             th:text="${question.questionText}"></textarea>
+                        <div class="markdown-display p-4 border-2 border-base-300 rounded bg-base-100 mt-2 prose max-w-none min-h-[5rem]"
+                             th:id="'question-display-' + ${status.index}"></div>
                     </div>
                     
                     <div class="form-control mt-4">
-                        <label class="label">
-                            <span class="label-text">Model Answer</span>
-                        </label>
+                         <div class="flex justify-between items-center mb-1">
+                            <label class="label py-0" th:for="'answer-editor-' + ${status.index}">
+                                <span class="label-text">Model Answer</span>
+                            </label>
+                            <button type="button" class="btn btn-xs btn-outline btn-accent" 
+                                    th:data-index="${status.index}" data-type="answer"
+                                    onclick="toggleEditView(this)">Edit</button>
+                        </div>
                         <textarea 
-                            th:name="|questions[${status.index}].modelAnswer|" 
-                            class="textarea textarea-bordered h-32" 
+                            th:name="|questions[${status.index}].modelAnswer|"
+                            th:id="'answer-editor-' + ${status.index}" 
+                            class="textarea textarea-bordered h-32 hidden" 
                             th:text="${question.modelAnswer}"></textarea>
+                        <div class="markdown-display p-4 border-2 border-base-300 rounded bg-base-100 mt-2 prose max-w-none min-h-[7rem]"
+                             th:id="'answer-display-' + ${status.index}"></div>
                     </div>
                     
                     <!-- Hidden field for orderIndex -->
@@ -86,5 +103,88 @@
         </form>
     </div>
     <script th:src="@{/js/theme-handler.js}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener('DOMContentLoaded', function () {
+        marked.setOptions({
+          highlight: function(code, lang) {
+            const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+            return hljs.highlight(code, { language, ignoreIllegals: true }).value;
+          },
+          pedantic: false,
+          gfm: true,
+          breaks: false,
+          sanitize: false, 
+          smartLists: true,
+          smartypants: false,
+          xhtml: false
+        });
+
+        function renderAndHighlight(editorId, displayId) {
+            const editor = document.getElementById(editorId);
+            const display = document.getElementById(displayId);
+            if (editor && display) {
+                const markdownText = editor.value;
+                display.innerHTML = marked.parse(markdownText);
+                display.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            }
+        }
+
+        window.toggleEditView = function(button) {
+            const index = button.getAttribute('data-index');
+            const type = button.getAttribute('data-type'); // 'question' or 'answer'
+            
+            const editorId = type + '-editor-' + index;
+            const displayId = type + '-display-' + index;
+
+            const editor = document.getElementById(editorId);
+            const display = document.getElementById(displayId);
+
+            if (editor && display) {
+                const isDisplayHidden = display.classList.contains('hidden');
+                if (isDisplayHidden) { // Currently in edit mode, switching to view mode
+                    renderAndHighlight(editorId, displayId); // Ensure preview is up-to-date
+                    editor.classList.add('hidden');
+                    display.classList.remove('hidden');
+                    button.textContent = 'Edit';
+                } else { // Currently in view mode, switching to edit mode
+                    editor.classList.remove('hidden');
+                    display.classList.add('hidden');
+                    button.textContent = 'View';
+                }
+            }
+        }
+
+        const questionsData = /*[[${questions}]]*/ [];
+        
+        questionsData.forEach((question, index) => {
+            const questionEditorId = 'question-editor-' + index;
+            const questionDisplayId = 'question-display-' + index;
+            const answerEditorId = 'answer-editor-' + index;
+            const answerDisplayId = 'answer-display-' + index;
+
+            // Initial render for (now visible by default) display divs
+            renderAndHighlight(questionEditorId, questionDisplayId);
+            renderAndHighlight(answerEditorId, answerDisplayId);
+
+            // Add event listeners for real-time updates to the (now initially hidden) editor 
+            // which in turn updates the display div (which might be visible or hidden)
+            const questionEditor = document.getElementById(questionEditorId);
+            if (questionEditor) {
+                questionEditor.addEventListener('input', () => renderAndHighlight(questionEditorId, questionDisplayId));
+            }
+
+            const answerEditor = document.getElementById(answerEditorId);
+            if (answerEditor) {
+                answerEditor.addEventListener('input', () => renderAndHighlight(answerEditorId, answerDisplayId));
+            }
+        });
+    });
+    /*]]>*/
+    </script>
 </body>
 </html> 

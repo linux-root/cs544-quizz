@@ -36,7 +36,7 @@
                     <button type="button" id="quiz-details-view-btn" class="btn btn-sm btn-outline">View Details</button>
                 </div>
                 
-                <form th:action="@{/quizz/regenerate}" method="post" class="mt-2">
+                <form th:action="@{/quizz/regenerate}" method="post" class="mt-2" id="regenerateQuizzForm">
                     <div class="form-control">
                         <label class="label" for="editTitle">
                             <span class="label-text">Title</span>
@@ -115,9 +115,14 @@
             </div>
         </form>
     </div>
+
+    <!-- Include Loading Overlay Fragment -->
+    <div th:replace="~{fragments/loading-overlay :: #loading-overlay}"></div>
+
     <script th:src="@{/js/theme-handler.js}"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script th:src="@{/js/loading-handler.js}"></script>
     <script th:inline="javascript">
     /*<![CDATA[*/
     document.addEventListener('DOMContentLoaded', function () {
@@ -214,6 +219,9 @@
             viewDetailsButton.addEventListener('click', toggleQuizDetailsForm);
         }
         // Initial state is set by HTML classes (view visible, edit hidden)
+
+        // Initialize loading effect for the regenerate form
+        initLoadingEffect('regenerateQuizzForm', 'loading-overlay', 'quote-display');
     });
     /*]]>*/
     </script>

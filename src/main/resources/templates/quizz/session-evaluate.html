@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Evaluate Quizz Session</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="/css/output.css" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-base-200">
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">Quizz Session Evaluation</h1>
+        <p>Placeholder for evaluating answers and providing feedback for a closed quiz session.</p>
+        <p>Session ID: <span th:text="${sessionId}">[Session ID]</span></p>
+        <!-- Add evaluation specific content here -->
+
+        <div class="mt-8">
+            <a th:href="@{/quizz/my-quizzes}" class="btn btn-secondary">Back to My Quizzes</a>
+        </div>
+    </div>
+    <script th:src="@{/js/theme-handler.js}"></script>
+</body>
+</html> 

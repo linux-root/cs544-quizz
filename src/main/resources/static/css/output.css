@@ -2194,6 +2194,10 @@
     --btn-color: var(--color-error);
     --btn-fg: var(--color-error-content);
   }
+  .btn-info {
+    --btn-color: var(--color-info);
+    --btn-fg: var(--color-info-content);
+  }
   .btn-primary {
     --btn-color: var(--color-primary);
     --btn-fg: var(--color-primary-content);

@@ -47,13 +47,14 @@
                         <th>ID</th>
                         <th>Title</th>
                         <th>Created</th>
-                        <th>Sessions</th>
+                        <th>Author</th>
+                        <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:if="${quizzes.empty}">
-                        <td colspan="5" class="text-center py-8">
+                        <td colspan="6" class="text-center py-8">
                             <div class="alert">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -64,39 +65,50 @@
                     </tr>
                     <tr th:each="quizz : ${quizzes}">
                         <td th:text="${quizz.id}"></td>
-                        <td th:text="${quizz.title}"></td>
-                        <td th:text="${#temporals.format(quizz.createdAt, 'dd MMM yyyy HH:mm')}"></td>
-                        <td th:text="${quizz.session != null ? quizz.session.id : 'N/A'}"></td>
+                        <td class="font-semibold" th:text="${quizz.title}"></td>
+                        <td th:text="${#temporals.format(quizz.createdAt, 'MM/dd/yyyy HH:mm')}"></td>
+                        <td th:text="${quizz.creator != null ? quizz.creator.name : 'N/A'}"></td>
                         <td>
-                            <div class="flex flex-col sm:flex-row gap-2 items-start">
-                                <!-- "Edit Questions" button removed -->
-
-                                <!-- Session Actions/Status -->
+                            <th:block th:if="${quizz.session == null}">
+                                <span class="text-sm text-gray-500 italic">No Session</span>
+                            </th:block>
+                            <th:block th:if="${quizz.session != null}" th:switch="${quizz.session.status.name()}">
+                                <span th:case="'CREATED'"   class="font-semibold text-warning">Created</span>
+                                <span th:case="'SCHEDULED'" class="font-semibold text-info">
+                                    Scheduled
+                                    <span class="quiz-countdown ml-1" th:if="${quizz.session.scheduledStartTime != null}"
+                                          th:attr="data-scheduled-time=${quizz.session.scheduledStartTime.toString()}">(Loading...)</span>
+                                </span>
+                                <span th:case="'OPEN'"      class="font-semibold text-success">Open</span>
+                                <span th:case="'CLOSED'"    class="font-semibold text-neutral">Closed</span>
+                                <span th:case="*"           class="font-semibold text-gray-500" th:text="${quizz.session.status.name()}">Unknown</span>
+                            </th:block>
+                        </td>
+                        <td>
+                            <div class="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
                                 <div th:if="${quizz.session == null}" class="flex gap-2">
                                     <form th:action="@{/quizz/start-session/{id}(id=${quizz.id})}" method="post" class="inline">
                                         <button type="submit" class="btn btn-sm btn-primary">Start Now</button>
                                     </form>
-                                    <!-- Future: <a th:href="@{/quizz/schedule-form/{id}(id=${quizz.id})}" class="btn btn-sm btn-secondary">Schedule</a> -->
+                                    <!-- Future: <a th:href="@{/quizz/schedule-form/{id}(id=${quizz.id})}}" class="btn btn-sm btn-secondary">Schedule</a> -->
                                 </div>
 
-                                <div th:if="${quizz.session != null}">
+                                <div th:if="${quizz.session != null}" class="flex items-center gap-2">
                                     <th:block th:switch="${quizz.session.status.name()}">
-                                        <span th:case="'CREATED'"   class="badge badge-warning">Status: Created</span>
-                                        <span th:case="'SCHEDULED'" class="badge badge-info">
-                                            Status: Scheduled 
-                                            <span class="quiz-countdown" th:if="${quizz.session.scheduledStartTime != null}"
-                                                  th:attr="data-scheduled-time=${quizz.session.scheduledStartTime.toString()}">(Loading countdown...)</span>
-                                        </span>
-                                        <span th:case="'OPEN'" class="badge badge-success">
-                                            Status: Open
-                                            <form th:action="@{/quizz/stop-session/{sessionId}(sessionId=${quizz.session.id})}" method="post" class="inline ml-2">
-                                                <button type="submit" class="btn btn-xs btn-error">Stop Session</button>
+                                        <div th:case="'OPEN'" class="flex items-center gap-2">
+                                            <form th:action="@{/quizz/stop-session/{sessionId}(sessionId=${quizz.session.id})}" method="post" class="inline">
+                                                <button type="submit" class="btn btn-sm btn-error">Stop</button>
                                             </form>
-                                        </span>
-                                        <span th:case="'CLOSED'"    class="badge badge-neutral">Status: Closed</span>
-                                        <span th:case="*"           class="badge badge-ghost" th:text="'Status: ' + ${quizz.session.status.name()}">Unknown Status</span>
+                                            <a th:href="@{/quizz/session/{sessionId}/monitor(sessionId=${quizz.session.id})}" class="btn btn-sm btn-info">Monitor</a>
+                                        </div>
+                                        <div th:case="'CLOSED'" class="flex items-center gap-2">
+                                            <a th:href="@{/quizz/session/{sessionId}/evaluate(sessionId=${quizz.session.id})}" class="btn btn-sm btn-accent">Evaluate</a>
+                                        </div>
+                                        <!-- Other statuses (CREATED, SCHEDULED) have no direct actions here -->
+                                        <span th:case="'CREATED'"   class="text-sm text-gray-400 italic">-</span>
+                                        <span th:case="'SCHEDULED'" class="text-sm text-gray-400 italic">-</span>
+                                        <span th:case="*"></span> <!-- Empty for unknown if no actions -->
                                     </th:block>
-                                    <!-- Future: Links like View Session, View Results, etc. -->
                                 </div>
                             </div>
                         </td>

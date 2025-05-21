@@ -14,12 +14,18 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import jakarta.servlet.http.HttpSession;
+import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -32,15 +38,18 @@ public class QuizzController {
   private final QuizzService quizzService;
   private final ProfessorRepository professorRepository;
   private final QSmartGenService aiService;
+  private final SimpMessagingTemplate messagingTemplate;
 
   @Autowired
   public QuizzController(QuizzService quizzService,
       UserRepository userRepository,
       ProfessorRepository professorRepository,
-      QSmartGenService aiService) {
+      QSmartGenService aiService,
+      SimpMessagingTemplate messagingTemplate) {
     this.quizzService = quizzService;
     this.professorRepository = professorRepository;
     this.aiService = aiService;
+    this.messagingTemplate = messagingTemplate;
   }
 
   private Optional<Professor> getCurrentProfessor(Authentication authentication) {
@@ -265,17 +274,26 @@ public class QuizzController {
   @PreAuthorize("hasRole('PROFESSOR')") // Or other appropriate authorization
   public String stopQuizzSession(@PathVariable("sessionId") Long sessionId, RedirectAttributes redirectAttributes) {
     try {
-      QuizzSession stoppedSession = quizzService.stopQuizzSession(sessionId);
-      if (stoppedSession.getStatus() == QuizzSession.SessionStatus.CLOSED) {
-        redirectAttributes.addFlashAttribute("successMessage", "Quizz session " + sessionId + " stopped successfully!");
-      } else {
-        // This case might occur if the session wasn't OPEN when stop was called
-        redirectAttributes.addFlashAttribute("infoMessage",
-            "Quizz session " + sessionId + " was not stopped. Status: " + stoppedSession.getStatus());
-      }
-    } catch (IllegalArgumentException e) {
-      redirectAttributes.addFlashAttribute("errorMessage", "Error stopping session: " + e.getMessage());
+      quizzService.stopQuizzSession(sessionId);
+      redirectAttributes.addFlashAttribute("successMessage", "Quizz session stopped successfully.");
+      messagingTemplate.convertAndSend("/topic/quizStatusUpdates", "{\"action\":\"sessionClosed\",\"sessionId\":" + sessionId + "}");
+    } catch (Exception e) {
+      redirectAttributes.addFlashAttribute("errorMessage", "Error stopping quizz session: " + e.getMessage());
     }
     return "redirect:/quizz/my-quizzes";
+  }
+
+  @GetMapping("/session/{sessionId}/monitor")
+  public String monitorQuizzSession(@PathVariable Long sessionId, Model model) {
+    // Optional: Add logic to fetch session details or participants if needed for the monitor page
+    model.addAttribute("sessionId", sessionId);
+    return "quizz/session-monitor";
+  }
+
+  @GetMapping("/session/{sessionId}/evaluate")
+  public String evaluateQuizzSession(@PathVariable Long sessionId, Model model) {
+    // Optional: Add logic to fetch session details, student answers etc. for the evaluation page
+    model.addAttribute("sessionId", sessionId);
+    return "quizz/session-evaluate";
   }
 }

@@ -1,0 +1,13 @@
+### Create a new Student Action
+POST http://localhost:8080/api/v1/student-actions
+Content-Type: application/json
+
+{
+  "actionType": "COPY_PASTE",
+  "startTimestamp": "2024-07-30T10:00:00",
+  "endTimestamp": "2024-07-30T10:00:05",
+  "studentId": 1,
+  "quizzSessionId": 1,
+  "questionId": 1,
+  "actionValue": "Pasted content into answer field."
+}

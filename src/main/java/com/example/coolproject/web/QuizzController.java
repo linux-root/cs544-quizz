@@ -348,6 +348,46 @@ public class QuizzController {
         }
         model.addAttribute("studentJoinTimeStrings", studentJoinTimeStrings);
 
+        Map<Long, Map<String, String>> studentLastActionData = new HashMap<>();
+        if (participants != null && !participants.isEmpty()) {
+            LocalDateTime nowForLastAction = LocalDateTime.now();
+            for (Student student : participants) {
+                Optional<StudentAction> lastActionOpt = studentActionRepository.findFirstByQuizzSessionAndStudentOrderByEndTimestampDesc(quizzSession, student);
+                Map<String, String> actionData = new HashMap<>();
+                if (lastActionOpt.isPresent()) {
+                    StudentAction lastAction = lastActionOpt.get();
+                    LocalDateTime actionTime = lastAction.getEndTimestamp();
+                    String timeAgoString;
+
+                    Duration duration = Duration.between(actionTime, nowForLastAction);
+                    long minutes = duration.toMinutes();
+                    if (minutes < 0) minutes = 0; // Handle potential clock sync issues or future timestamps gracefully
+
+                    if (minutes < 1) {
+                        timeAgoString = "Just now";
+                    } else if (minutes < 60) {
+                        timeAgoString = minutes + (minutes == 1 ? " minute ago" : " minutes ago");
+                    } else if (minutes < 1440) { // Less than 24 hours
+                        long hours = duration.toHours();
+                        timeAgoString = hours + (hours == 1 ? " hour ago" : " hours ago");
+                    } else {
+                        long days = duration.toDays();
+                        timeAgoString = days + (days == 1 ? " day ago" : " days ago");
+                    }
+                    // Format action type for better readability (e.g., JOIN_SESSION -> JOIN SESSION)
+                    String formattedActionType = lastAction.getActionType().toString().replace("_", " ");
+                    actionData.put("text", formattedActionType + " (" + timeAgoString + ")");
+                    actionData.put("type", lastAction.getActionType().name()); // e.g., "JOIN_SESSION"
+                    studentLastActionData.put(student.getId(), actionData);
+                } else {
+                    actionData.put("text", "No recent actions");
+                    actionData.put("type", "NONE");
+                    studentLastActionData.put(student.getId(), actionData);
+                }
+            }
+        }
+        model.addAttribute("studentLastActionData", studentLastActionData);
+
         // Format session timestamps for US locale
         DateTimeFormatter usDateTimeFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a");
         if (quizzSession.getScheduledStartTime() != null) {

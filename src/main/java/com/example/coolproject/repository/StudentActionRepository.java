@@ -16,4 +16,6 @@ public interface StudentActionRepository extends JpaRepository<StudentAction, Lo
 
     Optional<StudentAction> findFirstByQuizzSessionAndStudentAndActionTypeOrderByStartTimestampAsc(
         QuizzSession quizzSession, Student student, StudentActionType actionType);
+
+    Optional<StudentAction> findFirstByQuizzSessionAndStudentOrderByEndTimestampDesc(QuizzSession quizzSession, Student student);
 } 

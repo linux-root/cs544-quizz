@@ -45,6 +45,7 @@
                             <th>Name</th>
                             <th>Email</th>
                             <th>Joined</th>
+                            <th>Last Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -64,6 +65,22 @@
                             <td th:text="${student.name}">[Student Name]</td>
                             <td th:text="${student.email}">[Student Email]</td>
                             <td th:text="${studentJoinTimeStrings != null ? studentJoinTimeStrings[student.id] : 'N/A'}">[Join Time]</td>
+                            <td>
+                                <span th:if="${studentLastActionData != null && studentLastActionData[student.id] != null}"
+                                      th:text="${studentLastActionData[student.id]['text']}"
+                                      class="badge"
+                                      th:classappend="${studentLastActionData[student.id]['type'] == 'JOIN_SESSION' ? 'badge-info' :
+                                                       studentLastActionData[student.id]['type'] == 'SUBMIT_TEST' ? 'badge-success' :
+                                                       studentLastActionData[student.id]['type'] == 'START_TYPING' ? 'badge-neutral' :
+                                                       studentLastActionData[student.id]['type'] == 'STOP_TYPING' ? 'badge-neutral' :
+                                                       studentLastActionData[student.id]['type'] == 'TAB_SWITCH_AWAY' ? 'badge-warning' :
+                                                       studentLastActionData[student.id]['type'] == 'COPY_PASTE' ? 'badge-warning' :
+                                                       studentLastActionData[student.id]['type'] == 'TAB_SWITCH_BACK' ? 'badge-accent' :
+                                                       'badge-ghost'}">
+                                    [Last Action]
+                                </span>
+                                <span th:unless="${studentLastActionData != null && studentLastActionData[student.id] != null}" class="badge badge-ghost">N/A</span>
+                            </td>
                         </tr>
                     </tbody>
                 </table>

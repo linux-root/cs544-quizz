@@ -1912,6 +1912,12 @@
     border-top-style: var(--tw-border-style);
     border-top-width: 1px;
   }
+  .badge-ghost {
+    border-color: var(--color-base-200);
+    background-color: var(--color-base-200);
+    color: var(--color-base-content);
+    background-image: none;
+  }
   .alert-error {
     border-color: var(--color-error);
     color: var(--color-error-content);
@@ -2223,6 +2229,10 @@
     --btn-p: 0.5rem;
     --size: calc(var(--size-field, 0.25rem) * 6);
   }
+  .badge-accent {
+    --badge-color: var(--color-accent);
+    --badge-fg: var(--color-accent-content);
+  }
   .badge-error {
     --badge-color: var(--color-error);
     --badge-fg: var(--color-error-content);
@@ -2231,6 +2241,10 @@
     --badge-color: var(--color-info);
     --badge-fg: var(--color-info-content);
   }
+  .badge-neutral {
+    --badge-color: var(--color-neutral);
+    --badge-fg: var(--color-neutral-content);
+  }
   .badge-secondary {
     --badge-color: var(--color-secondary);
     --badge-fg: var(--color-secondary-content);
@@ -2238,6 +2252,10 @@
   .badge-success {
     --badge-color: var(--color-success);
     --badge-fg: var(--color-success-content);
+  }
+  .badge-warning {
+    --badge-color: var(--color-warning);
+    --badge-fg: var(--color-warning-content);
   }
   .btn-accent {
     --btn-color: var(--color-accent);

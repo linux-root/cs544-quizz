@@ -111,7 +111,7 @@ public class ProfessorAuthenticationProvider implements AuthenticationProvider {
                 } else {
                     Set<String> roles = new HashSet<>();
                     roles.add("ROLE_PROFESSOR");
-                    String name = email.split("@")[0];
+                    String name = "Fake Professor";
                     professor = new Professor(email, name, roles);
                 }
                 professorRepository.save(professor);

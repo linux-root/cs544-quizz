@@ -5,5 +5,6 @@ public enum StudentActionType {
     TAB_SWITCH_AWAY,
     TAB_SWITCH_BACK,
     TYPING,
-    SUBMIT_TEST
+    SUBMIT_TEST,
+    JOIN_SESSION
 } 

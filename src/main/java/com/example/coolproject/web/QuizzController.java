@@ -6,6 +6,8 @@ import com.example.coolproject.entity.Quizz;
 import com.example.coolproject.entity.QuizzSession;
 import com.example.coolproject.repository.ProfessorRepository;
 import com.example.coolproject.repository.UserRepository;
+import com.example.coolproject.repository.QuizzSessionRepository;
+import com.example.coolproject.repository.StudentActionRepository;
 import com.example.coolproject.service.QSmartGenService;
 import com.example.coolproject.service.QuizzService;
 import com.example.coolproject.web.dto.QuestionFormData;
@@ -29,6 +31,15 @@ import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.time.LocalDateTime;
+import java.time.Duration;
+import com.example.coolproject.entity.Student;
+import com.example.coolproject.entity.StudentAction;
+import com.example.coolproject.entity.StudentActionType;
+import java.time.format.DateTimeFormatter;
 
 @Controller
 @RequestMapping("/quizz")
@@ -39,17 +50,23 @@ public class QuizzController {
   private final ProfessorRepository professorRepository;
   private final QSmartGenService aiService;
   private final SimpMessagingTemplate messagingTemplate;
+  private final QuizzSessionRepository quizzSessionRepository;
+  private final StudentActionRepository studentActionRepository;
 
   @Autowired
   public QuizzController(QuizzService quizzService,
       UserRepository userRepository,
       ProfessorRepository professorRepository,
       QSmartGenService aiService,
-      SimpMessagingTemplate messagingTemplate) {
+      SimpMessagingTemplate messagingTemplate,
+      QuizzSessionRepository quizzSessionRepository,
+      StudentActionRepository studentActionRepository) {
     this.quizzService = quizzService;
     this.professorRepository = professorRepository;
     this.aiService = aiService;
     this.messagingTemplate = messagingTemplate;
+    this.quizzSessionRepository = quizzSessionRepository;
+    this.studentActionRepository = studentActionRepository;
   }
 
   private Optional<Professor> getCurrentProfessor(Authentication authentication) {
@@ -284,9 +301,69 @@ public class QuizzController {
   }
 
   @GetMapping("/session/{sessionId}/monitor")
-  public String monitorQuizzSession(@PathVariable Long sessionId, Model model) {
-    // Optional: Add logic to fetch session details or participants if needed for the monitor page
-    model.addAttribute("sessionId", sessionId);
+  public String monitorQuizzSession(@PathVariable Long sessionId, Model model, RedirectAttributes redirectAttributes) {
+    Optional<QuizzSession> sessionOpt = quizzSessionRepository.findById(sessionId);
+    if (sessionOpt.isPresent()) {
+        QuizzSession quizzSession = sessionOpt.get();
+        model.addAttribute("quizzSession", quizzSession);
+        Set<Student> participants = quizzSession.getParticipants();
+        model.addAttribute("participants", participants);
+        model.addAttribute("sessionId", sessionId);
+
+        Map<Long, String> studentJoinTimeStrings = new HashMap<>();
+        if (participants != null && !participants.isEmpty()) {
+            // Fetch all JOIN_SESSION actions for this session, ordered by time
+            List<StudentAction> joinActions = studentActionRepository.findByQuizzSessionAndActionTypeOrderByStartTimestampAsc(
+                quizzSession, StudentActionType.JOIN_SESSION);
+
+            Map<Long, LocalDateTime> earliestJoinTimes = new HashMap<>();
+            for (StudentAction action : joinActions) {
+                // Only record the first join time for each student
+                earliestJoinTimes.putIfAbsent(action.getStudent().getId(), action.getStartTimestamp());
+            }
+
+            LocalDateTime now = LocalDateTime.now();
+            for (Student student : participants) {
+                LocalDateTime joinTime = earliestJoinTimes.get(student.getId());
+                if (joinTime != null) {
+                    Duration duration = Duration.between(joinTime, now);
+                    long minutes = duration.toMinutes();
+                    String timeAgoString;
+                    if (minutes < 1) {
+                        timeAgoString = "Just now";
+                    } else if (minutes < 60) {
+                        timeAgoString = minutes + (minutes == 1 ? " minute ago" : " minutes ago");
+                    } else if (minutes < 1440) { // Less than 24 hours
+                        long hours = duration.toHours();
+                        timeAgoString = hours + (hours == 1 ? " hour ago" : " hours ago");
+                    } else {
+                        long days = duration.toDays();
+                        timeAgoString = days + (days == 1 ? " day ago" : " days ago");
+                    }
+                    studentJoinTimeStrings.put(student.getId(), timeAgoString);
+                } else {
+                    studentJoinTimeStrings.put(student.getId(), "Join time not recorded");
+                }
+            }
+        }
+        model.addAttribute("studentJoinTimeStrings", studentJoinTimeStrings);
+
+        // Format session timestamps for US locale
+        DateTimeFormatter usDateTimeFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a");
+        if (quizzSession.getScheduledStartTime() != null) {
+            model.addAttribute("formattedScheduledStartTime", quizzSession.getScheduledStartTime().format(usDateTimeFormatter));
+        }
+        if (quizzSession.getActualStartTime() != null) {
+            model.addAttribute("formattedActualStartTime", quizzSession.getActualStartTime().format(usDateTimeFormatter));
+        }
+        if (quizzSession.getEndTime() != null) {
+            model.addAttribute("formattedEndTime", quizzSession.getEndTime().format(usDateTimeFormatter));
+        }
+
+    } else {
+        redirectAttributes.addFlashAttribute("errorMessage", "Session not found.");
+        return "redirect:/quizz/my-quizzes";
+    }
     return "quizz/session-monitor";
   }
 

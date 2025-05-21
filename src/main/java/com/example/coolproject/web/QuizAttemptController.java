@@ -10,6 +10,9 @@ import com.example.coolproject.repository.QuizzSessionRepository;
 import com.example.coolproject.repository.AnswerRepository;
 import com.example.coolproject.repository.QuestionRepository;
 import com.example.coolproject.service.QuizzService;
+import com.example.coolproject.service.StudentActionService;
+import com.example.coolproject.dto.StudentActionDTO;
+import com.example.coolproject.entity.StudentActionType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,18 +43,21 @@ public class QuizAttemptController {
     private final QuizzService quizzService;
     private final AnswerRepository answerRepository;
     private final QuestionRepository questionRepository;
+    private final StudentActionService studentActionService;
 
     @Autowired
     public QuizAttemptController(QuizzSessionRepository quizzSessionRepository,
                                  StudentRepository studentRepository,
                                  QuizzService quizzService,
                                  AnswerRepository answerRepository,
-                                 QuestionRepository questionRepository) {
+                                 QuestionRepository questionRepository,
+                                 StudentActionService studentActionService) {
         this.quizzSessionRepository = quizzSessionRepository;
         this.studentRepository = studentRepository;
         this.quizzService = quizzService;
         this.answerRepository = answerRepository;
         this.questionRepository = questionRepository;
+        this.studentActionService = studentActionService;
     }
 
     @GetMapping("/session/{sessionId}/take") // New mapping for taking the quiz
@@ -77,6 +83,33 @@ public class QuizAttemptController {
         }
         QuizzSession quizzSession = sessionOpt.get();
         logger.debug("[TakeQuizPage] Current QuizzSession ID: {}", quizzSession.getId()); // Log session ID
+        
+        // Add student to participants list if session is OPEN or SCHEDULED
+        if (quizzSession.getStatus() == QuizzSession.SessionStatus.OPEN || quizzSession.getStatus() == QuizzSession.SessionStatus.SCHEDULED) {
+            boolean added = quizzSession.getParticipants().add(currentStudent);
+            if (added) {
+                quizzSessionRepository.save(quizzSession);
+                logger.info("[TakeQuizPage] Student {} added to participants for session ID {}. Total participants: {}", currentStudent.getEmail(), sessionId, quizzSession.getParticipants().size());
+                // Log the JOIN_SESSION action
+                try {
+                    StudentActionDTO actionDTO = new StudentActionDTO();
+                    actionDTO.setSessionId(sessionId);
+                    actionDTO.setActionType(StudentActionType.JOIN_SESSION);
+                    // studentActionService.createStudentAction will set timestamps to now()
+                    studentActionService.createStudentAction(actionDTO, currentStudent.getEmail());
+                    logger.info("[TakeQuizPage] Logged JOIN_SESSION action for student {} in session ID {}.", currentStudent.getEmail(), sessionId);
+                } catch (Exception e) {
+                    logger.error("[TakeQuizPage] Failed to log JOIN_SESSION action for student {} in session ID {}: {}", currentStudent.getEmail(), sessionId, e.getMessage());
+                }
+            } else {
+                logger.info("[TakeQuizPage] Student {} was already a participant in session ID {}. Total participants: {}", currentStudent.getEmail(), sessionId, quizzSession.getParticipants().size());
+            }
+        } else {
+            // This case is largely handled by the status check below, but included for completeness 
+            // if the logic for allowed statuses to join changes in the future.
+            logger.warn("[TakeQuizPage] Student {} attempting to join session ID {} with status {}. Not adding to participants.", 
+                        currentStudent.getEmail(), sessionId, quizzSession.getStatus());
+        }
         
         if (quizzSession.getStatus() != QuizzSession.SessionStatus.OPEN && quizzSession.getStatus() != QuizzSession.SessionStatus.SCHEDULED) { 
              if (quizzSession.getStatus() != QuizzSession.SessionStatus.OPEN) { 

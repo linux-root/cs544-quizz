@@ -10,10 +10,77 @@
     <div th:replace="~{fragments/navbar :: navbar}"></div>
 
     <div class="container mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold mb-8">Quizz Session Monitoring</h1>
-        <p>Placeholder for monitoring students during an open quiz session.</p>
-        <p>Session ID: <span th:text="${sessionId}">[Session ID]</span></p>
-        <!-- Add monitoring specific content here -->
+        <h1 class="text-3xl font-bold mb-6">Quizz Session Monitoring</h1>
+
+        <!-- Display error messages if any -->
+        <div th:if="${errorMessage}" class="alert alert-error shadow-lg mb-6">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span th:text="${errorMessage}">Error message here</span>
+            </div>
+        </div>
+
+        <div th:if="${quizzSession}" class="card bg-base-100 shadow-xl mb-8">
+            <div class="card-body">
+                <h2 class="card-title text-3xl font-bold text-primary mb-2" th:text="${quizzSession.quizz.title}">Quizz Title</h2>
+                <p>Session ID: <span th:text="${quizzSession.id}" class="font-mono">[Session ID]</span></p>
+                <p>Status: <span th:text="${quizzSession.status}" class="badge badge-lg"
+                               th:classappend="${quizzSession.status.name() == 'OPEN' ? 'badge-success' : quizzSession.status.name() == 'CLOSED' ? 'badge-error' : 'badge-info'}">
+                               [Session Status]
+                           </span>
+                </p>
+                <p th:if="${formattedScheduledStartTime}">Scheduled Start: <span th:text="${formattedScheduledStartTime}">[Scheduled Time]</span></p>
+                <p th:if="${formattedActualStartTime}">Actual Start: <span th:text="${formattedActualStartTime}">[Actual Start Time]</span></p>
+                <p th:if="${formattedEndTime}">End Time: <span th:text="${formattedEndTime}">[End Time]</span></p>
+            </div>
+        </div>
+
+        <div th:if="${quizzSession}">
+            <h2 class="text-2xl font-semibold mb-4">Joined Students</h2>
+            <div th:if="${participants != null && !participants.isEmpty()}" class="overflow-x-auto">
+                <table class="table w-full bg-base-100 shadow-md">
+                    <thead>
+                        <tr>
+                            <th>Avatar</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="student : ${participants}" class="hover">
+                            <td>
+                                <div class="avatar">
+                                    <div class="w-16 h-16 hover:w-20 hover:h-20 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2 transition-all duration-200 ease-in-out overflow-hidden">
+                                        <img th:if="${student.avatarUrl != null && !student.avatarUrl.isEmpty()}" th:src="${student.avatarUrl}" alt="Student Avatar" class="w-full h-full object-cover" />
+                                        <span th:unless="${student.avatarUrl != null && !student.avatarUrl.isEmpty()}" class="text-3xl hover:text-4xl flex items-center justify-center w-full h-full bg-neutral-focus text-neutral-content transition-all duration-200 ease-in-out">
+                                            <!-- Display initials or a default icon if no avatar -->
+                                            <span th:if="${student.name != null && !student.name.isEmpty()}" th:text="${#strings.substring(student.name,0,1)}"></span>
+                                            <span th:unless="${student.name != null && !student.name.isEmpty()}">S</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td th:text="${student.name}">[Student Name]</td>
+                            <td th:text="${student.email}">[Student Email]</td>
+                            <td th:text="${studentJoinTimeStrings != null ? studentJoinTimeStrings[student.id] : 'N/A'}">[Join Time]</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:if="${participants == null || participants.isEmpty()}" class="alert alert-info shadow-lg mt-4">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current flex-shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>No students have joined this session yet.</span>
+                </div>
+            </div>
+        </div>
+        <div th:unless="${quizzSession}" class="alert alert-warning shadow-lg">
+             <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                <span>Session details are not available. If you were redirected here after an error, please check the message above.</span>
+            </div>
+        </div>
 
         <div class="mt-8">
             <a th:href="@{/quizz/my-quizzes}" class="btn btn-secondary">Back to My Quizzes</a>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Evaluate Student Submission</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="/css/output.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css">
+</head>
+<body class="min-h-screen bg-base-200">
+    <div th:replace="~{fragments/navbar :: navbar}"></div>
+
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-4">Evaluate Submission for <span th:text="${student.name}">[Student Name]</span></h1>
+        <h2 class="text-xl font-semibold mb-6">Quizz: <span th:text="${quizzTitle}">[Quizz Title]</span></h2>
+
+        <!-- Success/Error Messages -->
+        <div th:if="${successMessage}" class="alert alert-success shadow-lg mb-6">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span th:text="${successMessage}"></span>
+            </div>
+        </div>
+        <div th:if="${errorMessage}" class="alert alert-error shadow-lg mb-6">
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current flex-shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span th:text="${errorMessage}"></span>
+            </div>
+        </div>
+
+        <form th:action="@{/quizz/session/{sessionId}/evaluate-student/{studentId}(sessionId=${sessionId}, studentId=${student.id})}" 
+              th:object="${evaluationForm}" method="post">
+            
+            <div th:each="evalItem, loopStatus : ${evaluationDataList}" class="card bg-base-100 shadow-xl mb-6">
+                <div class="card-body">
+                    <h3 class="card-title text-xl font-semibold">
+                        Question <span th:text="${evalItem.question.orderIndex + 1}"></span>: 
+                    </h3>
+                    <!-- Question Text Rendered as Markdown -->
+                    <div class="markdown-render question-text-md pl-2 mb-3" th:data-markdown="${evalItem.question.questionText}">
+                        <!-- Raw question text will be rendered here by JS -->
+                    </div>
+
+                    <input type="hidden" th:field="*{evaluations[__${loopStatus.index}__].questionId}" />
+                    <input type="hidden" th:if="${evalItem.answer != null}" th:field="*{evaluations[__${loopStatus.index}__].answerId}" />
+
+                    <div class="divider">Model Answer</div>
+                     <!-- Model Answer Rendered as Markdown -->
+                    <div class="markdown-render model-answer-md bg-base-200 p-4 rounded-md mb-4 min-h-[3rem]" th:data-markdown="${evalItem.question.modelAnswer}">
+                        <!-- Raw model answer will be rendered here by JS -->
+                    </div>
+
+                    <div class="divider">Student's Answer</div>
+                    <!-- Student's Answer Rendered as Markdown -->
+                    <div class="markdown-render student-answer-md bg-neutral-focus text-base-content p-4 rounded-md mb-4 min-h-[5rem]"
+                         th:data-markdown="${evalItem.answer?.textAnswer}" 
+                         th:attr="data-empty-message='No answer submitted for this question.'">
+                        <!-- Raw student answer will be rendered here by JS -->
+                    </div>
+                    
+                    <div class="form-control mt-4">
+                        <label class="label" th:for="'comment-' + ${loopStatus.index}">
+                            <span class="label-text">Professor's Comment:</span>
+                        </label>
+                        <textarea th:field="*{evaluations[__${loopStatus.index}__].comment}" 
+                                  th:id="'comment-' + ${loopStatus.index}"
+                                  class="textarea textarea-bordered h-24" 
+                                  placeholder="Enter your feedback here..."></textarea>
+                    </div>
+
+                    <div class="form-control mt-4 w-full max-w-xs">
+                        <label class="label" th:for="'score-' + ${loopStatus.index}">
+                            <span class="label-text">Score (0-10):</span>
+                        </label>
+                        <input type="number" th:field="*{evaluations[__${loopStatus.index}__].score}" 
+                               th:id="'score-' + ${loopStatus.index}"
+                               class="input input-bordered" 
+                               min="0" max="10" step="0.5" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-between">
+                <a th:href="@{/quizz/session/{id}/evaluate(id=${sessionId})}" class="btn btn-secondary">Back to Session Evaluation</a>
+                <button type="submit" class="btn btn-primary">Save Evaluation</button>
+            </div>
+        </form>
+    </div>
+    <script th:src="@{/js/theme-handler.js}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        document.addEventListener('DOMContentLoaded', function () {
+            marked.setOptions({
+                highlight: function(code, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        try {
+                            return hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+                        } catch (__) {}
+                    }
+                    try {
+                        return hljs.highlightAuto(code).value;
+                    } catch (__) {}
+                    return ''; // use 'return code;' if you want to original code to be displayed without highlighting
+                }
+            });
+
+            document.querySelectorAll('.markdown-render').forEach(function(div) {
+                const markdownText = div.getAttribute('data-markdown');
+                const emptyMessage = div.getAttribute('data-empty-message');
+
+                if (markdownText && markdownText.trim() !== '') {
+                    div.innerHTML = marked.parse(markdownText);
+                } else if (emptyMessage) {
+                    div.innerHTML = '<p class="italic text-gray-500">' + emptyMessage + '</p>';
+                } else {
+                     div.innerHTML = '<p class="italic text-gray-500">No content provided.</p>';
+                }
+            });
+
+            hljs.highlightAll();
+        });
+        /*]]>*/
+    </script>
+</body>
+</html> 

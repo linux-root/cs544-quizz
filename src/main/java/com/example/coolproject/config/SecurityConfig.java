@@ -66,7 +66,7 @@ public class SecurityConfig {
                     .requestMatchers("/", "/login", "/login/professor", "/oauth2/**", "/error",
                                      "/login/professor/initiate", "/verify-professor", "/login/professor/verify")
                     .permitAll()
-                    .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
+                    .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico", "/ws/**").permitAll()
                     .anyRequest().authenticated()
             )
             .formLogin(formLogin ->

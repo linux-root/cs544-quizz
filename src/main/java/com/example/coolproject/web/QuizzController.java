@@ -8,18 +8,17 @@ import com.example.coolproject.repository.ProfessorRepository;
 import com.example.coolproject.repository.UserRepository;
 import com.example.coolproject.repository.QuizzSessionRepository;
 import com.example.coolproject.repository.StudentActionRepository;
+import com.example.coolproject.repository.StudentRepository;
+import com.example.coolproject.repository.QuestionRepository;
 import com.example.coolproject.service.QSmartGenService;
 import com.example.coolproject.service.QuizzService;
 import com.example.coolproject.web.dto.QuestionFormData;
+import com.example.coolproject.web.dto.EvaluationForm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -27,7 +26,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import jakarta.servlet.http.HttpSession;
-import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +38,9 @@ import com.example.coolproject.entity.Student;
 import com.example.coolproject.entity.StudentAction;
 import com.example.coolproject.entity.StudentActionType;
 import java.time.format.DateTimeFormatter;
+import com.example.coolproject.entity.Answer;
+import com.example.coolproject.repository.AnswerRepository;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/quizz")
@@ -52,6 +53,27 @@ public class QuizzController {
   private final SimpMessagingTemplate messagingTemplate;
   private final QuizzSessionRepository quizzSessionRepository;
   private final StudentActionRepository studentActionRepository;
+  private final AnswerRepository answerRepository;
+  private final StudentRepository studentRepository;
+  private final QuestionRepository questionRepository;
+
+  public static class QuestionEvaluationViewWrapper {
+    private Question question;
+    private Answer answer;
+
+    public QuestionEvaluationViewWrapper(Question question, Answer answer) {
+      this.question = question;
+      this.answer = answer;
+    }
+
+    public Question getQuestion() {
+      return question;
+    }
+
+    public Answer getAnswer() {
+      return answer;
+    }
+  }
 
   @Autowired
   public QuizzController(QuizzService quizzService,
@@ -60,13 +82,19 @@ public class QuizzController {
       QSmartGenService aiService,
       SimpMessagingTemplate messagingTemplate,
       QuizzSessionRepository quizzSessionRepository,
-      StudentActionRepository studentActionRepository) {
+      StudentActionRepository studentActionRepository,
+      AnswerRepository answerRepository,
+      StudentRepository studentRepository,
+      QuestionRepository questionRepository) {
     this.quizzService = quizzService;
     this.professorRepository = professorRepository;
     this.aiService = aiService;
     this.messagingTemplate = messagingTemplate;
     this.quizzSessionRepository = quizzSessionRepository;
     this.studentActionRepository = studentActionRepository;
+    this.answerRepository = answerRepository;
+    this.studentRepository = studentRepository;
+    this.questionRepository = questionRepository;
   }
 
   private Optional<Professor> getCurrentProfessor(Authentication authentication) {
@@ -88,7 +116,7 @@ public class QuizzController {
           "You already have an open quiz. Please close it before creating a new one.");
       return "redirect:/quizz/my-quizzes";
     }
-    model.addAttribute("title", ""); // Initialize form backing object attributes if needed
+    model.addAttribute("title", "");
     model.addAttribute("prompt", "");
     return "quizz/create";
   }
@@ -105,7 +133,7 @@ public class QuizzController {
     Optional<Professor> professorOpt = getCurrentProfessor(authentication);
     if (!professorOpt.isPresent()) {
       redirectAttributes.addFlashAttribute("errorMessage", "Professor profile not found.");
-      return "redirect:/quizz/my-quizzes"; // Or appropriate error page
+      return "redirect:/quizz/my-quizzes";
     }
     if (quizzService.professorHasOpenQuizzSession(professorOpt.get())) {
       redirectAttributes.addFlashAttribute("errorMessage",
@@ -145,7 +173,7 @@ public class QuizzController {
     String email = authentication.getName();
 
     try {
-      List<Question> questions = aiService.generateQuestions(prompt, 15); // FIXME: hardcoded
+      List<Question> questions = aiService.generateQuestions(prompt, 15);
       logger.info("Regenerated {} questions for professor {}", questions.size(), email);
 
       session.setAttribute("tempQuestions", questions);
@@ -174,7 +202,7 @@ public class QuizzController {
     if (!professorOpt.isPresent()) {
       logger.error("Authenticated user {} is not found as a professor in the database.", authentication.getName());
       redirectAttributes.addFlashAttribute("errorMessage", "Professor profile not found.");
-      return "redirect:/quizz/create?error=professor_not_found"; // Or a more general error page
+      return "redirect:/quizz/create?error=professor_not_found";
     }
     Professor professor = professorOpt.get();
 
@@ -189,15 +217,10 @@ public class QuizzController {
       logger.error("No quizz title found in session for professor {}", professor.getEmail());
       return "redirect:/quizz/create?error=session";
     }
-    // Retrieve duration from session
     Integer durationMinutes = (Integer) httpSession.getAttribute("quizzDurationMinutes");
     if (durationMinutes == null) {
       logger.warn("No quizz duration found in session for professor {}, defaulting or error handling might be needed.",
           professor.getEmail());
-      // Decide on default behavior: error out, or use a default value. For now, let's
-      // assume it must be present or was defaulted in the form.
-      // If defaulting here: durationMinutes = 15; // Example default
-      // If erroring out because it should have been set by the generate step:
       redirectAttributes.addFlashAttribute("errorMessage",
           "Quiz duration was not set. Please try creating the quiz again.");
       return "redirect:/quizz/create?error=session_duration_missing";
@@ -220,7 +243,7 @@ public class QuizzController {
       httpSession.removeAttribute("tempQuestions");
       httpSession.removeAttribute("quizzTitle");
       httpSession.removeAttribute("quizzPrompt");
-      httpSession.removeAttribute("quizzDurationMinutes"); // Remove duration from session
+      httpSession.removeAttribute("quizzDurationMinutes");
 
       model.addAttribute("quizz", quizz);
       return "quizz/session-options";
@@ -262,7 +285,6 @@ public class QuizzController {
     Optional<Professor> professorOpt = professorRepository.findByEmail(email);
     if (!professorOpt.isPresent()) {
       logger.error("Authenticated user {} is not found as a professor in the database for /my-quizzes.", email);
-      // Consider redirecting to an error page or login if professor not found
       return "redirect:/error/403";
     }
     Professor professor = professorOpt.get();
@@ -276,7 +298,7 @@ public class QuizzController {
   }
 
   @PostMapping("/start-session/{id}")
-  @PreAuthorize("hasRole('PROFESSOR')")
+  @PreAuthorize("hasRole('ROLE_PROFESSOR')")
   public String startQuizzSession(@PathVariable("id") Long quizzId, RedirectAttributes redirectAttributes) {
     try {
       quizzService.startQuizzSession(quizzId);
@@ -288,12 +310,13 @@ public class QuizzController {
   }
 
   @PostMapping("/stop-session/{sessionId}")
-  @PreAuthorize("hasRole('PROFESSOR')") // Or other appropriate authorization
+  @PreAuthorize("hasRole('PROFESSOR')")
   public String stopQuizzSession(@PathVariable("sessionId") Long sessionId, RedirectAttributes redirectAttributes) {
     try {
       quizzService.stopQuizzSession(sessionId);
       redirectAttributes.addFlashAttribute("successMessage", "Quizz session stopped successfully.");
-      messagingTemplate.convertAndSend("/topic/quizStatusUpdates", "{\"action\":\"sessionClosed\",\"sessionId\":" + sessionId + "}");
+      messagingTemplate.convertAndSend("/topic/quizStatusUpdates",
+          "{\"action\":\"sessionClosed\",\"sessionId\":" + sessionId + "}");
     } catch (Exception e) {
       redirectAttributes.addFlashAttribute("errorMessage", "Error stopping quizz session: " + e.getMessage());
     }
@@ -304,113 +327,253 @@ public class QuizzController {
   public String monitorQuizzSession(@PathVariable Long sessionId, Model model, RedirectAttributes redirectAttributes) {
     Optional<QuizzSession> sessionOpt = quizzSessionRepository.findById(sessionId);
     if (sessionOpt.isPresent()) {
-        QuizzSession quizzSession = sessionOpt.get();
-        model.addAttribute("quizzSession", quizzSession);
-        Set<Student> participants = quizzSession.getParticipants();
-        model.addAttribute("participants", participants);
-        model.addAttribute("sessionId", sessionId);
+      QuizzSession quizzSession = sessionOpt.get();
+      model.addAttribute("quizzSession", quizzSession);
+      Set<Student> participants = quizzSession.getParticipants();
+      model.addAttribute("participants", participants);
+      model.addAttribute("sessionId", sessionId);
 
-        Map<Long, String> studentJoinTimeStrings = new HashMap<>();
-        if (participants != null && !participants.isEmpty()) {
-            // Fetch all JOIN_SESSION actions for this session, ordered by time
-            List<StudentAction> joinActions = studentActionRepository.findByQuizzSessionAndActionTypeOrderByStartTimestampAsc(
+      List<Question> questions = quizzService.getQuizzQuestions(quizzSession.getQuizz().getId());
+      Map<Long, String> questionDisplayMap = new HashMap<>();
+      for (Question q : questions) {
+        questionDisplayMap.put(q.getId(), String.format("Question %d", q.getOrderIndex() + 1));
+      }
+      model.addAttribute("questionDisplayMap", questionDisplayMap);
+
+      Map<Long, String> studentJoinTimeStrings = new HashMap<>();
+      if (participants != null && !participants.isEmpty()) {
+        List<StudentAction> joinActions = studentActionRepository
+            .findByQuizzSessionAndActionTypeOrderByStartTimestampAsc(
                 quizzSession, StudentActionType.JOIN_SESSION);
 
-            Map<Long, LocalDateTime> earliestJoinTimes = new HashMap<>();
-            for (StudentAction action : joinActions) {
-                // Only record the first join time for each student
-                earliestJoinTimes.putIfAbsent(action.getStudent().getId(), action.getStartTimestamp());
+        Map<Long, LocalDateTime> earliestJoinTimes = new HashMap<>();
+        for (StudentAction action : joinActions) {
+          earliestJoinTimes.putIfAbsent(action.getStudent().getId(), action.getStartTimestamp());
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (Student student : participants) {
+          LocalDateTime joinTime = earliestJoinTimes.get(student.getId());
+          if (joinTime != null) {
+            Duration duration = Duration.between(joinTime, now);
+            long minutes = duration.toMinutes();
+            String timeAgoString;
+            if (minutes < 1) {
+              timeAgoString = "Just now";
+            } else if (minutes < 60) {
+              timeAgoString = minutes + (minutes == 1 ? " minute ago" : " minutes ago");
+            } else if (minutes < 1440) {
+              long hours = duration.toHours();
+              timeAgoString = hours + (hours == 1 ? " hour ago" : " hours ago");
+            } else {
+              long days = duration.toDays();
+              timeAgoString = days + (days == 1 ? " day ago" : " days ago");
             }
+            studentJoinTimeStrings.put(student.getId(), timeAgoString);
+          } else {
+            studentJoinTimeStrings.put(student.getId(), "Join time not recorded");
+          }
+        }
+      }
+      model.addAttribute("studentJoinTimeStrings", studentJoinTimeStrings);
 
-            LocalDateTime now = LocalDateTime.now();
-            for (Student student : participants) {
-                LocalDateTime joinTime = earliestJoinTimes.get(student.getId());
-                if (joinTime != null) {
-                    Duration duration = Duration.between(joinTime, now);
-                    long minutes = duration.toMinutes();
-                    String timeAgoString;
-                    if (minutes < 1) {
-                        timeAgoString = "Just now";
-                    } else if (minutes < 60) {
-                        timeAgoString = minutes + (minutes == 1 ? " minute ago" : " minutes ago");
-                    } else if (minutes < 1440) { // Less than 24 hours
-                        long hours = duration.toHours();
-                        timeAgoString = hours + (hours == 1 ? " hour ago" : " hours ago");
-                    } else {
-                        long days = duration.toDays();
-                        timeAgoString = days + (days == 1 ? " day ago" : " days ago");
-                    }
-                    studentJoinTimeStrings.put(student.getId(), timeAgoString);
-                } else {
-                    studentJoinTimeStrings.put(student.getId(), "Join time not recorded");
-                }
+      Map<Long, Map<String, String>> studentLastActionData = new HashMap<>();
+      if (participants != null && !participants.isEmpty()) {
+        for (Student student : participants) {
+          Optional<StudentAction> lastActionOpt = studentActionRepository
+              .findFirstByQuizzSessionAndStudentOrderByEndTimestampDesc(quizzSession, student);
+          Map<String, String> actionData = new HashMap<>();
+          if (lastActionOpt.isPresent()) {
+            StudentAction lastAction = lastActionOpt.get();
+
+            String formattedActionType = lastAction.getActionType().toString().replace("_", " ");
+            actionData.put("actionText", formattedActionType);
+            actionData.put("type", lastAction.getActionType().name());
+
+            if (lastAction.getQuestion() != null) {
+              actionData.put("questionId", lastAction.getQuestion().getId().toString());
+              String questionInfo = questionDisplayMap.getOrDefault(lastAction.getQuestion().getId(), "");
+              actionData.put("questionText", questionInfo);
+            } else {
+              actionData.put("questionText", "");
             }
+            studentLastActionData.put(student.getId(), actionData);
+          } else {
+            actionData.put("actionText", "No recent actions");
+            actionData.put("type", "NONE");
+            actionData.put("questionText", "");
+            studentLastActionData.put(student.getId(), actionData);
+          }
         }
-        model.addAttribute("studentJoinTimeStrings", studentJoinTimeStrings);
+      }
+      model.addAttribute("studentLastActionData", studentLastActionData);
 
-        Map<Long, Map<String, String>> studentLastActionData = new HashMap<>();
-        if (participants != null && !participants.isEmpty()) {
-            LocalDateTime nowForLastAction = LocalDateTime.now();
-            for (Student student : participants) {
-                Optional<StudentAction> lastActionOpt = studentActionRepository.findFirstByQuizzSessionAndStudentOrderByEndTimestampDesc(quizzSession, student);
-                Map<String, String> actionData = new HashMap<>();
-                if (lastActionOpt.isPresent()) {
-                    StudentAction lastAction = lastActionOpt.get();
-                    LocalDateTime actionTime = lastAction.getEndTimestamp();
-                    String timeAgoString;
-
-                    Duration duration = Duration.between(actionTime, nowForLastAction);
-                    long minutes = duration.toMinutes();
-                    if (minutes < 0) minutes = 0; // Handle potential clock sync issues or future timestamps gracefully
-
-                    if (minutes < 1) {
-                        timeAgoString = "Just now";
-                    } else if (minutes < 60) {
-                        timeAgoString = minutes + (minutes == 1 ? " minute ago" : " minutes ago");
-                    } else if (minutes < 1440) { // Less than 24 hours
-                        long hours = duration.toHours();
-                        timeAgoString = hours + (hours == 1 ? " hour ago" : " hours ago");
-                    } else {
-                        long days = duration.toDays();
-                        timeAgoString = days + (days == 1 ? " day ago" : " days ago");
-                    }
-                    // Format action type for better readability (e.g., JOIN_SESSION -> JOIN SESSION)
-                    String formattedActionType = lastAction.getActionType().toString().replace("_", " ");
-                    actionData.put("text", formattedActionType + " (" + timeAgoString + ")");
-                    actionData.put("type", lastAction.getActionType().name()); // e.g., "JOIN_SESSION"
-                    studentLastActionData.put(student.getId(), actionData);
-                } else {
-                    actionData.put("text", "No recent actions");
-                    actionData.put("type", "NONE");
-                    studentLastActionData.put(student.getId(), actionData);
-                }
-            }
-        }
-        model.addAttribute("studentLastActionData", studentLastActionData);
-
-        // Format session timestamps for US locale
-        DateTimeFormatter usDateTimeFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a");
-        if (quizzSession.getScheduledStartTime() != null) {
-            model.addAttribute("formattedScheduledStartTime", quizzSession.getScheduledStartTime().format(usDateTimeFormatter));
-        }
-        if (quizzSession.getActualStartTime() != null) {
-            model.addAttribute("formattedActualStartTime", quizzSession.getActualStartTime().format(usDateTimeFormatter));
-        }
-        if (quizzSession.getEndTime() != null) {
-            model.addAttribute("formattedEndTime", quizzSession.getEndTime().format(usDateTimeFormatter));
-        }
+      DateTimeFormatter usDateTimeFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm a");
+      if (quizzSession.getScheduledStartTime() != null) {
+        model.addAttribute("formattedScheduledStartTime",
+            quizzSession.getScheduledStartTime().format(usDateTimeFormatter));
+      }
+      if (quizzSession.getActualStartTime() != null) {
+        model.addAttribute("formattedActualStartTime", quizzSession.getActualStartTime().format(usDateTimeFormatter));
+      }
+      if (quizzSession.getEndTime() != null) {
+        model.addAttribute("formattedEndTime", quizzSession.getEndTime().format(usDateTimeFormatter));
+      }
 
     } else {
-        redirectAttributes.addFlashAttribute("errorMessage", "Session not found.");
-        return "redirect:/quizz/my-quizzes";
+      redirectAttributes.addFlashAttribute("errorMessage", "Session not found.");
+      return "redirect:/quizz/my-quizzes";
     }
     return "quizz/session-monitor";
   }
 
   @GetMapping("/session/{sessionId}/evaluate")
-  public String evaluateQuizzSession(@PathVariable Long sessionId, Model model) {
-    // Optional: Add logic to fetch session details, student answers etc. for the evaluation page
+  public String evaluateQuizzSession(@PathVariable Long sessionId, Model model, RedirectAttributes redirectAttributes) {
+    Optional<QuizzSession> sessionOpt = quizzSessionRepository.findById(sessionId);
+    if (!sessionOpt.isPresent()) {
+      redirectAttributes.addFlashAttribute("errorMessage", "Quizz session not found.");
+      return "redirect:/quizz/my-quizzes";
+    }
+    QuizzSession quizzSession = sessionOpt.get();
+
+    List<Answer> submittedAnswers = answerRepository.findByQuizzSession(quizzSession);
+    Set<Student> submittedParticipants = submittedAnswers.stream()
+        .map(Answer::getStudent)
+        .collect(Collectors.toSet());
+
     model.addAttribute("sessionId", sessionId);
+    model.addAttribute("quizzSession", quizzSession);
+    model.addAttribute("submittedParticipants", submittedParticipants);
+    logger.info("Evaluating session {}: Found {} students with submissions.", sessionId, submittedParticipants.size());
     return "quizz/session-evaluate";
+  }
+
+  @GetMapping("/session/{sessionId}/evaluate-student/{studentId}")
+  public String evaluateStudentSubmission(@PathVariable Long sessionId, @PathVariable Long studentId, Model model,
+      RedirectAttributes redirectAttributes) {
+    Optional<QuizzSession> sessionOpt = quizzSessionRepository.findById(sessionId);
+    if (!sessionOpt.isPresent()) {
+      redirectAttributes.addFlashAttribute("errorMessage", "Quizz session not found.");
+      logger.warn("Attempted to evaluate non-existent session ID: {}", sessionId);
+      return "redirect:/quizz/my-quizzes";
+    }
+    QuizzSession quizzSession = sessionOpt.get();
+
+    Optional<Student> studentOpt = studentRepository.findById(studentId);
+    if (!studentOpt.isPresent()) {
+      redirectAttributes.addFlashAttribute("errorMessage", "Student not found.");
+      logger.warn("Attempted to evaluate non-existent student ID: {} for session ID: {}", studentId, sessionId);
+      return "redirect:/quizz/session/" + sessionId + "/evaluate";
+    }
+    Student student = studentOpt.get();
+
+    Quizz quizz = quizzSession.getQuizz();
+    if (quizz == null) {
+      redirectAttributes.addFlashAttribute("errorMessage", "Quizz not found for this session.");
+      logger.error("Quizz is null for session ID: {}", sessionId);
+      return "redirect:/quizz/session/" + sessionId + "/evaluate";
+    }
+
+    List<Question> questions = quizzService.getQuizzQuestions(quizz.getId());
+    List<Answer> studentAnswersForSession = answerRepository.findByQuizzSessionAndStudent(quizzSession, student);
+
+    Map<Long, Answer> studentAnswersMap = studentAnswersForSession.stream()
+        .collect(Collectors.toMap(answer -> answer.getQuestion().getId(), answer -> answer,
+            (existing, replacement) -> existing));
+
+    List<QuestionEvaluationViewWrapper> evaluationDataList = questions.stream()
+        .map(question -> new QuestionEvaluationViewWrapper(question, studentAnswersMap.get(question.getId())))
+        .collect(Collectors.toList());
+
+    model.addAttribute("sessionId", sessionId);
+    model.addAttribute("student", student);
+    model.addAttribute("quizzSession", quizzSession);
+    model.addAttribute("quizzTitle", quizz.getTitle());
+    model.addAttribute("evaluationDataList", evaluationDataList);
+
+    EvaluationForm evaluationForm = new EvaluationForm();
+    List<EvaluationForm.EvaluationDetail> details = evaluationDataList.stream().map(data -> {
+      EvaluationForm.EvaluationDetail detail = new EvaluationForm.EvaluationDetail();
+      detail.setQuestionId(data.getQuestion().getId());
+      if (data.getAnswer() != null) {
+        detail.setAnswerId(data.getAnswer().getId());
+        detail.setComment(data.getAnswer().getComment());
+        detail.setScore(data.getAnswer().getScore());
+      }
+      return detail;
+    }).collect(Collectors.toList());
+    evaluationForm.setEvaluations(details);
+    model.addAttribute("evaluationForm", evaluationForm);
+
+    logger.info("Preparing evaluation page for student {} ({}) in session {}, quizz '{}'. Found {} questions.",
+        student.getName(), studentId, sessionId, quizz.getTitle(), evaluationDataList.size());
+    return "quizz/student-submission-evaluation";
+  }
+
+  @PostMapping("/session/{sessionId}/evaluate-student/{studentId}")
+  @PreAuthorize("hasAuthority('ROLE_PROFESSOR')")
+  public String saveStudentEvaluation(@PathVariable Long sessionId, @PathVariable Long studentId,
+      @ModelAttribute("evaluationForm") EvaluationForm evaluationForm,
+      RedirectAttributes redirectAttributes) {
+
+    Optional<QuizzSession> sessionOpt = quizzSessionRepository.findById(sessionId);
+    if (!sessionOpt.isPresent()) {
+      redirectAttributes.addFlashAttribute("errorMessage", "Quizz session not found.");
+      return "redirect:/quizz/my-quizzes";
+    }
+    QuizzSession quizzSession = sessionOpt.get();
+
+    Optional<Student> studentOpt = studentRepository.findById(studentId);
+    if (!studentOpt.isPresent()) {
+      redirectAttributes.addFlashAttribute("errorMessage", "Student not found.");
+      return "redirect:/quizz/session/" + sessionId + "/evaluate";
+    }
+    Student student = studentOpt.get();
+
+    logger.info("Saving evaluation for student {} in session {}. Received {} evaluation details.", studentId, sessionId,
+        evaluationForm.getEvaluations().size());
+
+    for (EvaluationForm.EvaluationDetail detail : evaluationForm.getEvaluations()) {
+      Optional<Question> questionOpt = questionRepository.findById(detail.getQuestionId());
+
+      if (!questionOpt.isPresent()) {
+        logger.warn("Question with ID {} not found. Skipping evaluation for this question.", detail.getQuestionId());
+        continue;
+      }
+      Question question = questionOpt.get();
+
+      Answer answerToSave;
+      Optional<Answer> existingAnswerOpt = answerRepository.findByQuizzSessionAndStudentAndQuestion(quizzSession,
+          student, question);
+
+      if (existingAnswerOpt.isPresent()) {
+        answerToSave = existingAnswerOpt.get();
+        logger.debug("Updating existing answer (ID: {}) for QID: {}, Student: {}, Session: {}",
+            answerToSave.getId(), question.getId(), student.getId(), quizzSession.getId());
+      } else {
+        answerToSave = new Answer();
+        answerToSave.setQuizzSession(quizzSession);
+        answerToSave.setStudent(student);
+        answerToSave.setQuestion(question);
+        logger.debug(
+            "Creating new answer placeholder for QID: {}, Student: {}, Session: {} (student might not have answered this specific question)",
+            question.getId(), student.getId(), quizzSession.getId());
+      }
+
+      answerToSave.setComment(detail.getComment());
+      answerToSave.setScore(detail.getScore());
+
+      try {
+        answerRepository.save(answerToSave);
+      } catch (Exception e) {
+        logger.error("Error saving answer evaluation for QID {}: {}", detail.getQuestionId(), e.getMessage(), e);
+        redirectAttributes.addFlashAttribute("errorMessage",
+            "Error saving evaluation for Question " + question.getOrderIndex() + 1 + ": " + e.getMessage());
+      }
+    }
+
+    redirectAttributes.addFlashAttribute("successMessage",
+        "Evaluation saved successfully for " + student.getName() + ".");
+    return "redirect:/quizz/session/" + sessionId + "/evaluate-student/" + studentId;
   }
 }

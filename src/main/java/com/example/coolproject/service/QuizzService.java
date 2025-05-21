@@ -4,7 +4,6 @@ import com.example.coolproject.entity.Professor;
 import com.example.coolproject.entity.Question;
 import com.example.coolproject.entity.Quizz;
 import com.example.coolproject.entity.QuizzSession;
-import com.example.coolproject.entity.Student;
 import com.example.coolproject.repository.QuestionRepository;
 import com.example.coolproject.repository.QuizzRepository;
 import com.example.coolproject.repository.QuizzSessionRepository;
@@ -30,10 +29,8 @@ public class QuizzService {
   private final QuizzRepository quizzRepository;
   private final QuestionRepository questionRepository;
   private final QuizzSessionRepository quizzSessionRepository;
-  private final StudentRepository studentRepository;
   private final QSmartGenService aiService;
   private final SimpMessagingTemplate messagingTemplate;
-  private final ObjectMapper objectMapper;
 
   private volatile boolean schedulerActive = false;
 
@@ -49,10 +46,8 @@ public class QuizzService {
     this.quizzRepository = quizzRepository;
     this.questionRepository = questionRepository;
     this.quizzSessionRepository = quizzSessionRepository;
-    this.studentRepository = studentRepository;
     this.aiService = aiService;
     this.messagingTemplate = messagingTemplate;
-    this.objectMapper = objectMapper;
   }
 
   /**
@@ -403,8 +398,6 @@ public class QuizzService {
     return hasOpenSession;
   }
 
-  // Renamed and simplified: checks for ANY open quiz session available to all
-  // students.
   public Optional<QuizzSession> findAnyOpenQuizSession() {
     logger.debug("Searching for any open quiz session.");
     List<QuizzSession> openSessions = quizzSessionRepository.findByStatus(QuizzSession.SessionStatus.OPEN);
@@ -412,10 +405,6 @@ public class QuizzService {
       logger.debug("No OPEN quiz sessions found in the system.");
       return Optional.empty();
     }
-    // Return the first open session found.
-    // Business logic might later dictate which one if multiple are open (e.g.,
-    // newest, etc.)
-    // For now, any open session is considered joinable.
     QuizzSession sessionToJoin = openSessions.get(0);
     logger.info("Found an OPEN quiz session ID: {}. Title: '{}'", sessionToJoin.getId(),
         sessionToJoin.getQuizz().getTitle());

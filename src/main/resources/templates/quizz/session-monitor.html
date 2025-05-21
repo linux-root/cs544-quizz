@@ -49,7 +49,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="student : ${participants}" class="hover">
+                        <tr th:each="student : ${participants}" class="hover" th:attr="data-student-id=${student.id}">
                             <td>
                                 <div class="avatar">
                                     <div class="w-16 h-16 hover:w-20 hover:h-20 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2 transition-all duration-200 ease-in-out overflow-hidden">
@@ -65,21 +65,26 @@
                             <td th:text="${student.name}">[Student Name]</td>
                             <td th:text="${student.email}">[Student Email]</td>
                             <td th:text="${studentJoinTimeStrings != null ? studentJoinTimeStrings[student.id] : 'N/A'}">[Join Time]</td>
-                            <td>
-                                <span th:if="${studentLastActionData != null && studentLastActionData[student.id] != null}"
-                                      th:text="${studentLastActionData[student.id]['text']}"
-                                      class="badge"
-                                      th:classappend="${studentLastActionData[student.id]['type'] == 'JOIN_SESSION' ? 'badge-info' :
-                                                       studentLastActionData[student.id]['type'] == 'SUBMIT_TEST' ? 'badge-success' :
-                                                       studentLastActionData[student.id]['type'] == 'START_TYPING' ? 'badge-neutral' :
-                                                       studentLastActionData[student.id]['type'] == 'STOP_TYPING' ? 'badge-neutral' :
-                                                       studentLastActionData[student.id]['type'] == 'TAB_SWITCH_AWAY' ? 'badge-warning' :
-                                                       studentLastActionData[student.id]['type'] == 'COPY_PASTE' ? 'badge-warning' :
-                                                       studentLastActionData[student.id]['type'] == 'TAB_SWITCH_BACK' ? 'badge-accent' :
-                                                       'badge-ghost'}">
-                                    [Last Action]
-                                </span>
-                                <span th:unless="${studentLastActionData != null && studentLastActionData[student.id] != null}" class="badge badge-ghost">N/A</span>
+                            <td class="last-action-cell">
+                                <th:block th:if="${studentLastActionData != null && studentLastActionData[student.id] != null}">
+                                    <span class="badge text-gray-100"
+                                          th:classappend="${studentLastActionData[student.id]['type'] == 'JOIN_SESSION' ? 'badge-info' :
+                                                          studentLastActionData[student.id]['type'] == 'SUBMIT_TEST' ? 'badge-success' :
+                                                          studentLastActionData[student.id]['type'] == 'START_TYPING' ? 'badge-success' :
+                                                          studentLastActionData[student.id]['type'] == 'STOP_TYPING' ? 'badge-accent' :
+                                                          studentLastActionData[student.id]['type'] == 'TAB_SWITCH_AWAY' ? 'badge-warning' :
+                                                          studentLastActionData[student.id]['type'] == 'COPY_PASTE' ? 'badge-warning' :
+                                                          studentLastActionData[student.id]['type'] == 'TAB_SWITCH_BACK' ? 'badge-accent' :
+                                                          'badge-ghost'}">
+                                        <span th:text="${studentLastActionData[student.id]['actionText']}">[Action Text]</span>
+                                        <span th:if="${studentLastActionData[student.id]['questionText'] != null && !studentLastActionData[student.id]['questionText'].isEmpty()}"
+                                              th:text="${studentLastActionData[student.id]['questionText']}"
+                                              class="badge badge-sm badge-secondary text-gray-100 ml-1">
+                                            [Qn]
+                                        </span>
+                                    </span>
+                                </th:block>
+                                <span th:unless="${studentLastActionData != null && studentLastActionData[student.id] != null}" class="badge badge-ghost text-gray-100">N/A</span>
                             </td>
                         </tr>
                     </tbody>
@@ -104,5 +109,106 @@
         </div>
     </div>
     <script th:src="@{/js/theme-handler.js}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script th:if="${quizzSession}" th:inline="javascript">
+        /*<![CDATA[*/
+        const currentSessionId = /*[[${quizzSession.id}]]*/ null;
+        const questionDisplayMap = /*[[${questionDisplayMap}]]*/ {}; // Inlined from Spring model
+
+        function formatActionTypeText(actionTypeEnumName) {
+            if (!actionTypeEnumName) return 'UNKNOWN';
+            return actionTypeEnumName.replace(/_/g, ' ');
+        }
+
+        function getBadgeClassForActionType(actionTypeEnumName) {
+            switch (actionTypeEnumName) {
+                case 'JOIN_SESSION': return 'badge-info';
+                case 'SUBMIT_TEST': return 'badge-success';
+                case 'START_TYPING': return 'badge-success';
+                case 'STOP_TYPING': return 'badge-accent';
+                case 'TAB_SWITCH_AWAY':
+                case 'COPY_PASTE': return 'badge-warning';
+                case 'TAB_SWITCH_BACK': return 'badge-accent';
+                default: return 'badge-ghost';
+            }
+        }
+
+        if (currentSessionId) {
+            const socket = new SockJS(/*[[@{/ws}]]*/ '/ws');
+            const stompClient = Stomp.over(socket);
+            stompClient.debug = null; // Disable debug messages for production
+
+            stompClient.connect({}, function (frame) {
+                console.log('Connected to WebSocket: ' + frame);
+
+                // Subscription for general quiz status updates (e.g., session open/closed)
+                const quizStatusTopic = "/topic/quizStatusUpdates";
+                stompClient.subscribe(quizStatusTopic, function(messageOutput) {
+                    const payload = JSON.parse(messageOutput.body);
+                    console.log("Received quiz status update: ", payload);
+                    if (payload.sessionId === currentSessionId && (payload.action === 'sessionClosed' || payload.action === 'sessionOpened')) {
+                        console.log("Relevant session status change detected, reloading page...");
+                        location.reload(); // Full reload for session status changes is okay
+                    }
+                });
+
+                // Subscription for new student actions within the current session
+                const studentActionTopic = `/topic/session/${currentSessionId}/studentAction`;
+                stompClient.subscribe(studentActionTopic, function (message) {
+                    const payload = JSON.parse(message.body);
+                    console.log(`Received student action update for session ${currentSessionId}: `, payload);
+                    
+                    const studentRow = document.querySelector(`tr[data-student-id="${payload.studentId}"]`);
+                    if (studentRow) {
+                        const lastActionCell = studentRow.querySelector('.last-action-cell');
+                        if (lastActionCell) {
+                            const actionTypeFormatted = formatActionTypeText(payload.actionType);
+                            const newBadgeClass = getBadgeClassForActionType(payload.actionType);
+                            
+                            let questionString = "";
+                            if (payload.questionId && questionDisplayMap[payload.questionId]) {
+                                questionString = questionDisplayMap[payload.questionId]; // e.g., "(Q1)"
+                            }
+
+                            // Clear previous content
+                            lastActionCell.innerHTML = ''; 
+
+                            // Create new main badge span for action text
+                            const newActionBadge = document.createElement('span');
+                            newActionBadge.classList.add('badge', newBadgeClass, 'text-gray-100');
+                            newActionBadge.textContent = actionTypeFormatted;
+                            
+                            lastActionCell.appendChild(newActionBadge);
+
+                            // If there is question info, create and append a separate small badge for it
+                            if (questionString) {
+                                const newQuestionBadge = document.createElement('span');
+                                newQuestionBadge.classList.add('badge', 'badge-sm', 'badge-secondary', 'text-gray-100', 'ml-1');
+                                newQuestionBadge.textContent = questionString;
+                                lastActionCell.appendChild(newQuestionBadge);
+                            }
+
+                        } else {
+                            console.warn("Could not find .last-action-cell for studentId: " + payload.studentId);
+                        }
+                    } else {
+                         console.warn("Could not find student row for studentId: " + payload.studentId);
+                         // Optionally, if a student joins and their row isn't there yet, a full reload might be a fallback.
+                         // For now, we only update existing rows. A new student joining will appear on next full refresh.
+                         // Consider a page reload if a JOIN_SESSION action is for a student not yet in the table
+                         if(payload.actionType === 'JOIN_SESSION') {
+                            console.log("New student joined, reloading to show new participant.");
+                            location.reload();
+                         }
+                    }
+                });
+
+            }, function(error) {
+                console.error('STOMP connection error: ' + error);
+            });
+        }
+        /*]]>*/
+    </script>
 </body>
 </html> 

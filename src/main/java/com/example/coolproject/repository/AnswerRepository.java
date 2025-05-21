@@ -16,5 +16,7 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
 
     List<Answer> findByQuizzSessionAndStudent(QuizzSession quizzSession, Student student);
 
+    List<Answer> findByQuizzSession(QuizzSession quizzSession);
+
     // You can add custom query methods here if needed in the future
 } 

@@ -11,6 +11,18 @@
 
     <div th:replace="~{fragments/navbar :: navbar}"></div>
 
+    <div class="container mx-auto max-w-3xl mt-4 mb-8">
+        <div class="bg-warning/10 border border-warning text-warning p-4 md:p-6 rounded-box shadow-md">
+            <h3 class="text-xl font-bold mb-3">Exam Conduct Rule: No External Assistance</h3>
+            <p class="mb-2">Candidates must adhere strictly to the following guidelines during the examination:</p>
+            <ul class="list-disc list-inside space-y-1 text-sm">
+                <li><strong>No Copying or Pasting:</strong> All responses must be original and typed manually. The use of copy-paste functions is strictly prohibited.</li>
+                <li><strong>No Switching Tabs or Windows:</strong> Candidates must remain within the exam interface at all times. Navigating away from the exam screen—including switching browser tabs or windows—is not allowed and may be considered a breach of exam integrity.</li>
+                <li><strong>Independent Thinking Required:</strong> Candidates are expected to rely solely on their own knowledge and reasoning. External resources, tools, or assistance of any kind are not permitted.</li>
+            </ul>
+        </div>
+    </div>
+
     <div class="container mx-auto max-w-3xl">
         <div class="bg-base-100 p-6 md:p-8 rounded-box shadow-xl">
             <h1 class="text-3xl md:text-4xl font-bold mb-6 text-center text-primary" th:text="${quizzTitle}">Quiz Title</h1>

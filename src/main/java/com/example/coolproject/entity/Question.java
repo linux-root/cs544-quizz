@@ -9,10 +9,10 @@ public class Question {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     private String questionText;
     
-    @Column(length = 2000)
+    @Column(columnDefinition = "TEXT")
     private String modelAnswer;
     
     @ManyToOne

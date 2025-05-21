@@ -4,7 +4,10 @@
 
     <div th:fragment="navbar" class="navbar bg-base-100 rounded-box shadow-lg mb-8">
         <div class="flex-1">
-            <a class="btn btn-ghost normal-case text-xl">CoolProject</a>
+            <a th:href="@{/}" class="btn btn-ghost normal-case text-xl">
+                <img th:src="@{/images/quizlogo.jpg}" alt="Quizz Logo" class="h-7 w-auto mr-2"/>
+                Cs544Quizz
+            </a>
         </div>
         <div class="flex-none">
             <!-- Theme Toggle Button -->

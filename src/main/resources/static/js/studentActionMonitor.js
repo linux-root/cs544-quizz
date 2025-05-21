@@ -1,32 +1,28 @@
 let currentFocusedQuestionId = null;
-let typingTimer = null;
 const TYPING_DEBOUNCE_DELAY_MS = 2000; // 2 seconds
-let lastTypedActionTimestamp = null;
+
+const typingStateCache = {}; // Stores { isTyping: boolean, typingTimer: TimeoutId | null, startTimestamp: string | null }
 
 /**
  * Records a student action.
- * For now, it logs to the console. Later, this will send data to the server.
  *
- * @param {string} actionType - The type of action (e.g., 'COPY_PASTE', 'TYPING').
+ * @param {string} actionType - The type of action (e.g., 'COPY_PASTE', 'START_TYPING', 'STOP_TYPING').
  * @param {object} details - An object containing action-specific details.
- *                           Expected properties:
- *                           - startTimestamp (ISO string)
- *                           - endTimestamp (ISO string, can be same as start for point-in-time actions)
- *                           - questionId (string|null) - Optional ID of the related question.
- *                           - actionValue (string|null) - Optional, any specific value related to the action.
  */
 function recordAction(actionType, details) {
-  // Original actionData structure based on client-side logic
+  // 'TYPING' is deprecated. All calls should use 'START_TYPING' or 'STOP_TYPING'.
+  // If 'TYPING' is somehow passed, it will be sent as-is to the server.
+  // The server-side enum StudentActionType should no longer have 'TYPING'.
+
   const originalActionData = {
     actionType: actionType,
     startTimestamp: details.startTimestamp || new Date().toISOString(),
     endTimestamp: details.endTimestamp || new Date().toISOString(),
-    questionId: details.questionId !== undefined ? details.questionId : currentFocusedQuestionId, // Will be string or null
+    questionId: details.questionId !== undefined ? details.questionId : currentFocusedQuestionId,
     actionValue: details.actionValue !== undefined ? details.actionValue : null,
-    sessionId: window.QUIZZ_SESSION_ID // Will be string from textContent
+    sessionId: window.QUIZZ_SESSION_ID
   };
 
-  // Prepare payload for the server, parsing IDs
   let parsedSessionId = null;
   if (originalActionData.sessionId && originalActionData.sessionId !== 'UNKNOWN_SESSION') {
     const numSessionId = parseInt(originalActionData.sessionId, 10);
@@ -103,147 +99,137 @@ function recordAction(actionType, details) {
     });
 }
 
-function handleTypingStart(event) {
-  const questionId = event.target.id.replace('answer-', '');
-  currentFocusedQuestionId = questionId; // Update focused question
-
-  if (!lastTypedActionTimestamp) { // If it's the first key press or after a debounced action
-    lastTypedActionTimestamp = new Date().toISOString();
-  }
-  clearTimeout(typingTimer);
-}
-
-function handleTypingEnd(event) {
-  const questionId = event.target.id.replace('answer-', '');
-  // Ensure currentFocusedQuestionId is set, even if focusout happens before input for some reason.
+function handleInput(event) {
+  const textarea = event.target;
+  const questionId = textarea.id.replace('answer-', '');
   currentFocusedQuestionId = questionId;
 
+  if (!typingStateCache[questionId]) {
+    console.warn(`State for questionId ${questionId} not found in handleInput. Initializing.`);
+    typingStateCache[questionId] = { isTyping: false, typingTimer: null, startTimestamp: null };
+  }
+  const state = typingStateCache[questionId];
 
-  clearTimeout(typingTimer);
-  typingTimer = setTimeout(() => {
-    if (lastTypedActionTimestamp) {
-      recordAction('TYPING', {
-        startTimestamp: lastTypedActionTimestamp,
+  if (!state.isTyping) {
+    state.startTimestamp = new Date().toISOString();
+    recordAction('START_TYPING', {
+      startTimestamp: state.startTimestamp,
+      endTimestamp: state.startTimestamp,
+      questionId: questionId,
+      actionValue: String(textarea.value.length),
+    });
+    state.isTyping = true;
+  }
+
+  if (state.typingTimer) {
+    clearTimeout(state.typingTimer);
+  }
+
+  state.typingTimer = setTimeout(() => {
+    if (state.isTyping) {
+      recordAction('STOP_TYPING', {
+        startTimestamp: state.startTimestamp,
         endTimestamp: new Date().toISOString(),
         questionId: questionId,
-        actionValue: event.target.value.length // Record current length as an example value
+        actionValue: String(textarea.value.length),
       });
-      lastTypedActionTimestamp = null; // Reset for the next typing burst
+      state.isTyping = false;
+      state.startTimestamp = null;
     }
   }, TYPING_DEBOUNCE_DELAY_MS);
 }
 
+function forceStopTyping(questionId, reasonSuffix) {
+  if (!typingStateCache[questionId] || !typingStateCache[questionId].isTyping) {
+    return;
+  }
+  const state = typingStateCache[questionId];
+  const textarea = document.getElementById('answer-' + questionId);
+  const forcedEndTimestamp = new Date().toISOString();
+  let stopActionValue;
+
+  if (reasonSuffix === 'focus_change') stopActionValue = "typing ended due to focus out";
+  else if (reasonSuffix === 'blur') stopActionValue = "typing ended due to blur";
+  else if (reasonSuffix === 'tab_switch_away') stopActionValue = "typing ended due to tab switch away";
+  else if (reasonSuffix === 'quiz_submission') stopActionValue = "typing ended due to quiz submission";
+  else stopActionValue = textarea ? String(textarea.value.length) : "0";
+
+  clearTimeout(state.typingTimer);
+  recordAction('STOP_TYPING', {
+    startTimestamp: state.startTimestamp || forcedEndTimestamp,
+    endTimestamp: forcedEndTimestamp,
+    questionId: questionId,
+    actionValue: stopActionValue,
+  });
+  state.isTyping = false;
+  state.startTimestamp = null;
+}
 
 function initActionTracking() {
   console.log('Initializing student action tracking...');
+  Object.keys(typingStateCache).forEach(key => delete typingStateCache[key]);
+  currentFocusedQuestionId = null;
 
-  // 1. Track Copy/Paste
   document.querySelectorAll("textarea[id^='answer-']").forEach(textarea => {
     const questionId = textarea.id.replace('answer-', '');
 
+    typingStateCache[questionId] = {
+      isTyping: false,
+      typingTimer: null,
+      startTimestamp: null
+    };
+
     textarea.addEventListener('focus', () => {
-      currentFocusedQuestionId = questionId;
-      // If there was an ongoing typing timer for another textarea, log it before switching focus.
-      if (typingTimer && lastTypedActionTimestamp) {
-        clearTimeout(typingTimer); // Clear existing timer
-        recordAction('TYPING', {
-          startTimestamp: lastTypedActionTimestamp,
-          endTimestamp: new Date().toISOString(), // Log with current time as end
-          // questionId will be the one from the *previous* textarea (closure)
-          // This uses currentFocusedQuestionId by way of recordAction's fallback
-          actionValue: "typing ended due to focus out"
-        });
-        lastTypedActionTimestamp = null; // Reset
+      if (currentFocusedQuestionId && currentFocusedQuestionId !== questionId && typingStateCache[currentFocusedQuestionId]?.isTyping) {
+        forceStopTyping(currentFocusedQuestionId, 'focus_change');
       }
+      currentFocusedQuestionId = questionId;
     });
 
     textarea.addEventListener('copy', (event) => {
-      recordAction('COPY_PASTE', {
-        actionValue: 'copy',
-        questionId: questionId
-      });
+      recordAction('COPY_PASTE', { actionValue: 'copy', questionId: questionId });
     });
 
     textarea.addEventListener('paste', (event) => {
-      recordAction('COPY_PASTE', {
-        actionValue: 'paste',
-        questionId: questionId
-      });
+      recordAction('COPY_PASTE', { actionValue: 'paste', questionId: questionId });
     });
 
-    // 2. Track Typing (debounced)
-    textarea.addEventListener('input', handleTypingStart); // Use 'input' for more robust typing detection
-    textarea.addEventListener('input', handleTypingEnd); // Debounce from the last input
+    textarea.addEventListener('input', handleInput); // THE ONLY WAY TYPING START/STOP IS NOW HANDLED
 
-    // If user leaves the textarea, force the typing action to be recorded if one was pending
     textarea.addEventListener('blur', () => {
-      clearTimeout(typingTimer);
-      if (lastTypedActionTimestamp) {
-        recordAction('TYPING', {
-          startTimestamp: lastTypedActionTimestamp,
-          endTimestamp: new Date().toISOString(),
-          questionId: questionId, // use questionId from the closure
-          actionValue: "typing ended due to blur"
-        });
-        lastTypedActionTimestamp = null;
-      }
-      // currentFocusedQuestionId = null; // Optionally clear when no textarea is focused
+      forceStopTyping(questionId, 'blur');
     });
   });
 
-  // 3. Track Tab Switching
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       recordAction('TAB_SWITCH_AWAY', {});
-      // If there was an ongoing typing timer, log it
-      if (typingTimer && lastTypedActionTimestamp) {
-        clearTimeout(typingTimer);
-        recordAction('TYPING', {
-          startTimestamp: lastTypedActionTimestamp,
-          endTimestamp: new Date().toISOString(),
-          // currentFocusedQuestionId should still be set from the last interaction
-          actionValue: "typing ended due to tab switch away"
-        });
-        lastTypedActionTimestamp = null;
+      if (currentFocusedQuestionId && typingStateCache[currentFocusedQuestionId]?.isTyping) {
+        forceStopTyping(currentFocusedQuestionId, 'tab_switch_away');
       }
     } else {
       recordAction('TAB_SWITCH_BACK', {});
     }
   });
 
-  // 4. Track Quiz Submission
   const quizForm = document.getElementById('quizAttemptForm');
   if (quizForm) {
     quizForm.addEventListener('submit', () => {
-      // Ensure any pending typing action is recorded before submitting
-      clearTimeout(typingTimer);
-      if (lastTypedActionTimestamp) {
-        recordAction('TYPING', {
-          startTimestamp: lastTypedActionTimestamp,
-          endTimestamp: new Date().toISOString(),
-          // currentFocusedQuestionId should still be set
-          actionValue: "typing ended due to quiz submission"
-        });
-        lastTypedActionTimestamp = null;
-      }
-      recordAction('SUBMIT_TEST', {
-        // No specific questionId for submit test, it's a global action for the session.
-        questionId: null
+      Object.keys(typingStateCache).forEach(qId => {
+        // No need to check isTyping here, forceStopTyping does it.
+        forceStopTyping(qId, 'quiz_submission');
       });
-      // Note: The actual submission will proceed after this.
-      // If sending to server, ensure it's synchronous or use `navigator.sendBeacon` if possible for reliability.
+      recordAction('SUBMIT_TEST', { questionId: null });
     });
   }
 
-  // Set a global variable for QUIZZ_SESSION_ID if it's available in the HTML
-  // This is a placeholder, actual mechanism might involve parsing from a data attribute or a script tag.
   const quizzSessionIdElement = document.evaluate("//p[contains(., 'Session ID:')]/span", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
   if (quizzSessionIdElement) {
     window.QUIZZ_SESSION_ID = quizzSessionIdElement.textContent.trim();
     console.log('Quizz Session ID found:', window.QUIZZ_SESSION_ID);
   } else {
     console.warn('Quizz Session ID span not found. Action tracking might be incomplete.');
-    window.QUIZZ_SESSION_ID = 'UNKNOWN_SESSION'; // Fallback
+    window.QUIZZ_SESSION_ID = 'UNKNOWN_SESSION';
   }
 
   console.log('Student action tracking initialized.');

@@ -220,5 +220,3 @@ Spring Security is used to manage access control.
     *   After a successful build, the application can be run using `mvn spring-boot:run` or by executing the packaged JAR file.
     *   Access the application at `http://localhost:8080` (or the configured port).
     *   For professor login, check the application console for the one-time verification code after submitting your email.
-
-*(Further details on environment variables and advanced Docker usage would typically be included here if applicable.)* 
